@@ -18,3 +18,11 @@
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+
+# project directories
+cache
+cache/
+inputs
+inputs/
+outputs
+outputs/
