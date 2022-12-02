@@ -11,50 +11,57 @@
 ##############################################################################################################################################
 ##############################################################################################################################################
 
-Require::Require(c('terra'))
+Require::Require(c('terra','stringr'))
+terraOptions(tempdir='scratch', todisc=TRUE)
 
-tile_folders <- list.files('inputs/ABoVE_AGB_30m', pattern='Bh', full.names = T)
+tile_folders <- sort(list.files('inputs/ABoVE_AGB_30m', pattern='Bh', full.names = T))
 
-slope <- function(x, y = 1:length(x)) {
-  if(sum(!is.na(x)) >= 2) {
-    return(sum((x - mean(unlist(x), na.rm=T)) * (y - mean(y)), na.rm=T) / sum((x - mean(unlist(x), na.rm=T)) ^ 2, na.rm=T))
+slope <- function(x) {
+  y <- which(!is.na(x))
+  if(length(y) >= 2) {
+    x <- unlist(x[!is.na(x)])
+    return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
   } else {
     return(NA)
   }
 }
 
-# slope <- function(x) {
-#   if(sum(!is.na(x)) >= 2) {
-#     x <- x[!is.na(x)]
-#     y <- 1:length(x)
-#     return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
-#   } else {
-#     return(NA)
-#   }
-# }
+################################################################################
+## 1) Estimate cell-wise linear regression coefficients for undisrupted time series
+## aka "local" or "geographically weighted regression (GWR)"
 
-i=1
+system.time({
+  
+  sapply(1:length(tile_folders), function(i) {
+    
+    app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern='ragb'))), 
+        fun=slope, cores=32,
+        filename=file.path(tile_folders[i], paste0('agb_slopes_', str_sub(tile_folders[i], start=-7L),'.tif')),
+        overwrite=T)
+    
+  })
+  
+}) # 3.8 hrs
 
-library(terra)
+
+############################################################################################################
+## 2) Group pixel values into (layer-specific) 5-year age classes based on spatiotemporal disturbance dynamics
+##    and calculate slopes per 5-year period
+
+Require::Require(c('terra','stringr'))
 terraOptions(tempdir='scratch', todisc=TRUE)
 
-tile_folder <- tile_folders[i]
-ragb <- rast(file.path(tile_folder, list.files(tile_folder, pattern='ragb')))
-  
-# core 8 = 153
-# core 25 = 121
-# core 32 = 117
+tile_folders <- sort(list.files('inputs/ABoVE_AGB_30m', pattern='Bh', full.names = T))
 
-system.time(app(ragb, fun=slope, cores=36,
-    filename=file.path(tile_folder, 'slopetest.tif'),
-    overwrite=TRUE))
+slope <- function(x) {
+  y <- which(!is.na(x))
+  if(length(y) >= 2) {
+    x <- unlist(x[!is.na(x)])
+    return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
+  } else {
+    return(NA)
+  }
+}
 
-################################################################################
-## Estimate cell-wise linear regression coefficient for undisrupted time series
-## aka "geographically weighted regression" or GWR
+classify(rage, rcl=c(cuts=seq.int(from=0, to=515, by=5)), right=FALSE, others=NA)
 
-
-
-## Group pixel values into (layer-specific) 5-year age classes based on spatiotemporal disturbance dynamics,
-## eliminating pixel-years occurring pre-disturbance
-# rcl=c(cuts=seq.int(from=0, to=515, by=5)), right=FALSE, others=NA)
