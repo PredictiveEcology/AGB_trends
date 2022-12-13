@@ -328,7 +328,10 @@ plotFun <- function(sim) {
   dstTilesToPlot <- filter(mod$dstTiles, apply(relate(x = vect(mod$dstTiles), y = vect(sim$studyArea),
                                                       relation = "intersects"), 1, any))
 
-  Plots(sim$analysisZones, agbTilesToPlot, dstTilesToPlot, fn = plotstudyAreaCoverage)
+  Plots(sim$analysisZones, agbTiles = agbTilesToPlot, dstTiles = dstTilesToPlot,
+        fn = plotstudyAreaCoverage,
+        filename = "analysis_zones", types = P(sim)$.plots,
+        ggsaveArgs = list(width = 12, height = 10, units = "in", dpi = 300))
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
