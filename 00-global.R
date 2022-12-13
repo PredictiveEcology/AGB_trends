@@ -58,7 +58,7 @@ if (RcppVersionAvail < RcppVersionNeeded) {
 
 setLinuxBinaryRepo()
 
-Require(c(#"PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
+Require(c("PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
           "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)"),
         upgrade = FALSE, standAlone = TRUE)
 
@@ -72,7 +72,7 @@ Require(unique(c(modulePkgs, otherPkgs)), require = FALSE, standAlone = TRUE, up
 ## NOTE: always load packages LAST, after installation above;
 ##       ensure plyr loaded before dplyr or there will be problems
 Require(c("data.table", "plyr", "pryr", "SpaDES.core",
-          "googledrive", "httr", "magrittr", "sessioninfo", "terra"),
+          "dplyr", "googledrive", "httr", "sf", "sessioninfo", "terra"),
         upgrade = FALSE, standAlone = TRUE)
 
 # configure project ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ Require(c("data.table", "plyr", "pryr", "SpaDES.core",
 
 config <- list(
   cacheDBtype = switch(.user,
-                       achubaty = "postgresql",
+                       #achubaty = "postgresql",
                        "sqlite"),
   googleUser = switch(.user,
                       achubaty = "achubaty@for-cast.ca",
@@ -139,25 +139,19 @@ SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
 do.call(SpaDES.core::setPaths, prjPaths) ## set paths for simulation
 
 ## define study area
-targetCRS <- "EPSG:4269" ## TODO: confirm
-
 bcrWBI <- Cache(prepInputs,
                 url = "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip",
-                destinationPath = prjPaths$inputPath,
-                targetCRS = targetCRS,
+                destinationPath = file.path(prjPaths$inputPath, "WBI"),
                 fun = "sf::st_read") %>%
   filter(BCR %in% c(4, 6:8))
 
-# provsWB <- geodata::gadm(country = "CAN", level = 1, path = prjPaths$inputPath) %>%
-provsWBI <- raster::getData("GADM", country = "CAN", level = 1, path = prjPaths$inputPath) %>%
-  sf::st_as_sf() %>%
-  sf::st_transform(targetCRS) %>%
+provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) %>%
+  st_as_sf() %>%
+  st_transform(targetCRS) %>%
   filter(NAME_1 %in% c("British Columbia", "Alberta", "Saskatchewan", "Manitoba",
-                       "Yukon", "Northwest Territories", "Nunavut")) %>%
-  sf::st_cast("POLYGON")
+                       "Yukon", "Northwest Territories", "Nunavut"))
 
-studyAreaWBI <- Cache(postProcess, bcrWBI, studyArea = provsWBI, useSAcrs = TRUE,
-                      useCache = useCache, filename2 = NULL)
+studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL)
 
 gpkgFile <- file.path(prjPaths$inputPath, "WBI", "WBI_studyArea.gpkg")
 if (!file.exists(gpkgFile)) {
@@ -167,7 +161,9 @@ if (!file.exists(gpkgFile)) {
 ## start the simulation
 simInitAndSpades(
   times = list(start = 0, end = 1),
-  params = list(),
+  params = list(
+
+  ),
   objects = list(
     studyArea = studyAreaWBI
   ),
