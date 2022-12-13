@@ -159,10 +159,13 @@ if (!file.exists(gpkgFile)) {
 }
 
 ## start the simulation
-simInitAndSpades(
+mySim <- simInitAndSpades(
   times = list(start = 0, end = 1),
   params = list(
-
+    AGB_dataPrep = list(
+      analysisZonesType = "ecozone",
+      .plots = c("screen", "png", "raw")
+    )
   ),
   objects = list(
     studyArea = studyAreaWBI
