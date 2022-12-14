@@ -7,6 +7,16 @@ if (file.exists("BC_HRV.Renviron")) readRenviron("BC_HRV.Renviron") ## database 
 .nodename <- Sys.info()[["nodename"]]
 .user <- Sys.info()[["user"]]
 
+######
+
+if (exists(".mode", .GlobalEnv)) {
+  stopifnot(.mode %in% c("development", "testing", "production"))
+} else {
+  .mode <- "development"
+}
+
+#####
+
 prjDir <- switch(.user,
                  achubaty  = "~/GitHub/AGB_trends",
                  trudolph = "~/GitHub/AGB_trends",
@@ -59,7 +69,8 @@ if (RcppVersionAvail < RcppVersionNeeded) {
 setLinuxBinaryRepo()
 
 Require(c("PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
-          "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)"),
+          "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
+          "PredictiveEcology/SpaDES.tools@development"),
         upgrade = FALSE, standAlone = TRUE)
 
 modulePkgs <- unname(unlist(packagesInModules(modulePath = file.path(prjDir, "modules"))))
@@ -139,24 +150,51 @@ SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
 do.call(SpaDES.core::setPaths, prjPaths) ## set paths for simulation
 
 ## define study area
-bcrWBI <- Cache(prepInputs,
-                url = "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip",
-                destinationPath = file.path(prjPaths$inputPath, "WBI"),
-                fun = "sf::st_read") %>%
-  filter(BCR %in% c(4, 6:8))
+myStudyArea <- switch(
+  .mode,
+  production = {
+    bcrWBI <- Cache(prepInputs,
+                    url = "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip",
+                    destinationPath = file.path(prjPaths$inputPath, "WBI"),
+                    fun = "sf::st_read") %>%
+      filter(BCR %in% c(4, 6:8))
 
-provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) %>%
-  st_as_sf() %>%
-  st_transform(targetCRS) %>%
-  filter(NAME_1 %in% c("British Columbia", "Alberta", "Saskatchewan", "Manitoba",
-                       "Yukon", "Northwest Territories", "Nunavut"))
+    provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) %>%
+      st_as_sf() %>%
+      st_transform(targetCRS) %>%
+      filter(NAME_1 %in% c("British Columbia", "Alberta", "Saskatchewan", "Manitoba",
+                           "Yukon", "Northwest Territories", "Nunavut"))
 
-studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL)
+    studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL)
 
-gpkgFile <- file.path(prjPaths$outputPath, "WBI_studyArea.gpkg")
-if (!file.exists(gpkgFile)) {
-  st_write(studyAreaWBI, dsn = gpkgFile, driver = "GPKG")
-}
+    gpkgFile <- file.path(prjPaths$outputPath, "WBI_studyArea.gpkg")
+    if (!file.exists(gpkgFile)) {
+      st_write(studyAreaWBI, dsn = gpkgFile, driver = "GPKG", delete_layer = TRUE)
+    }
+
+    studyAreaWBI
+  },
+  development = {
+    ## random study area for development
+    ctr1 <- sp::SpatialPoints(matrix(c(-113.530, 61.530), ncol = 2))
+    crs(ctr1) <- "EPSG:4326"
+    studyAreaRnd1 <- SpaDES.tools::randomStudyArea(ctr1, size = 3e10, seed = 42) %>%
+      st_as_sf() %>%
+      st_transform(targetCRS)
+
+    studyAreaRnd1
+  },
+  testing = {
+    ## random study area for testing (larger + diff location than devel)
+    ctr2 <- sp::SpatialPoints(matrix(c(-126.95, 61.30), ncol = 2))
+    crs(ctr2) <- "EPSG:4326"
+    studyAreaRnd2 <- SpaDES.tools::randomStudyArea(ctr2, size = 6e10, seed = pi) %>%
+      st_as_sf() %>%
+      st_transform(targetCRS)
+
+    studyAreaRnd2
+  }
+)
 
 ## start the simulation
 mySim <- simInitAndSpades(
@@ -164,11 +202,12 @@ mySim <- simInitAndSpades(
   params = list(
     AGB_dataPrep = list(
       analysisZonesType = "ecozone",
-      .plots = c("screen", "png", "raw")
+      .plots = c("screen", "png", "raw"),
+      .studyAreaName = if (.mode == "production") "WBI" else "test"
     )
   ),
   objects = list(
-    studyArea = studyAreaWBI
+    studyArea = myStudyArea
   ),
   modules = list("AGB_dataPrep"),
   paths = prjPaths
