@@ -165,10 +165,9 @@ provsWB <- Cache(prepInputs,
 studyArea <- bcrWB %>% 
   st_crop(., provsWB[provsWB$PREABBR != 'Nvt.',]) %>% 
   st_intersection(., provsWB) %>% 
-  group_by(BCR) %>%
+  group_by(BCR, Label) %>%
   summarize() %>%
-  st_write(., dsn='inputs/WBI/WBI_studyArea.gpkg', driver='GPKG')
-
+  st_write(., dsn='inputs/WBI/WBI_studyArea.gpkg', driver='GPKG', delete_layer=T)
 
 #################################################################################################################
 ## OPTIONAL: Visually compare available tiles between ABoVE products and WBI study area
