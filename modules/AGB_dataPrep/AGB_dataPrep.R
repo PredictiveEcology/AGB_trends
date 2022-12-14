@@ -174,12 +174,33 @@ Init <- function(sim) {
   )
   url <- urlList[[tolower(P(sim)$analysisZonesType)]]
 
-  sim$analysisZones <- prepInputs(url = url,
-                                  destinationPath = mod$dPath,
-                                  studyArea = sim$studyArea,
-                                  fun = "sf::st_read",
-                                  overwrite = TRUE) %>%
-    st_transform(mod$targetCRS)
+  eco <- lapply(urlList, function(url) {
+    prepInputs(url = url,
+               destinationPath = mod$dPath,
+               studyArea = sim$studyArea,
+               fun = "sf::st_read",
+               overwrite = TRUE) %>%
+      st_transform(mod$targetCRS) %>%
+      st_cast("POLYGON")
+  })
+
+  eco[[1]] <- select(eco[[1]], ECODISTRIC, geometry) %>%
+    mutate(ECODISTRICT = ECODISTRIC, ECODISTRIC = NULL, .before = "geometry")
+  eco[[2]] <- select(eco[[2]], REGION_NAM, geometry) %>%
+    mutate(ECOREGION = REGION_NAM, REGION_NAM = NULL, .before = "geometry")
+  eco[[3]] <- select(eco[[3]], ECOPROVINC, geometry) %>%
+    mutate(ECOPROVINCE = ECOPROVINC, ECOPROVINC = NULL, .before = "geometry")
+  eco[[4]] <- select(eco[[4]], ZONE_NAME, geometry) %>%
+    mutate(ECOZONE = ZONE_NAME, ZONE_NAME = NULL, .before = "geometry")
+
+  ## intersect them all, removing slivers, lines, points, etc.
+  sim$analysisZones <- eco[[4]] %>%
+    st_intersection(eco[[3]]) %>%
+    st_intersection(eco[[2]]) %>%
+    st_intersection(eco[[1]]) %>%
+    st_buffer(0)
+  sim$analysisZones <- sim$analysisZones[which(!is.na(st_dimension(sim$analysisZones))), ]
+  rownames(sim$analysisZones) <- 1:nrow(sim$analysisZones)
 
   # ! ----- STOP EDITING ----- ! #
 
@@ -327,25 +348,30 @@ plotFun <- function(sim) {
   dstTilesToPlot <- filter(mod$dstTiles, apply(relate(x = vect(mod$dstTiles), y = vect(sim$studyArea),
                                                       relation = "intersects"), 1, any))
 
-  Plots(sim$analysisZones, agbTiles = agbTilesToPlot, dstTiles = dstTilesToPlot,
+  Plots(mutate(sim$analysisZones, ZONE = get(toupper(P(sim)$analysisZonesType))),
+        agbTiles = agbTilesToPlot,
+        dstTiles = dstTilesToPlot,
+        studyAreaName = P(sim)$.studyAreaName,
         fn = plotstudyAreaCoverage,
-        filename = "analysis_zones", types = P(sim)$.plots,
+        filename = paste("analysis_zones", P(sim)$.studyAreaName, toupper(P(sim)$analysisZonesType),
+                         studyAreaName(sim$studyArea), sep = "_"),
+        types = P(sim)$.plots,
         ggsaveArgs = list(width = 12, height = 10, units = "in", dpi = 300))
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
 
-plotstudyAreaCoverage <- function(studyArea, agbTiles, dstTiles, ...) {
+plotstudyAreaCoverage <- function(analysisZones, agbTiles, dstTiles, studyAreaName, ...) {
   alpha <- 0.3
-  ggplot(studyArea) +
-    geom_sf(aes(fill = ZONE_NAME), colour = "black", alpha = alpha) +
+  ggplot(analysisZones) +
+    geom_sf(aes(fill = ZONE), colour = "black", alpha = alpha) +
     theme_bw() +
     annotation_north_arrow(location = "bl", which_north = "true",
                            pad_x = unit(0.25, "in"), pad_y = unit(0.25, "in"),
                            style = north_arrow_fancy_orienteering) +
     xlab("Longitude") + ylab("Latitude") +
-    ggtitle("Analysis zones within study area") +
+    ggtitle(paste("Analysis zones within", studyAreaName, "study area")) +
     geom_sf(data = st_as_sf(dstTiles), colour = "red", alpha = alpha) +
     geom_sf(data = st_as_sf(agbTiles), colour = "lightblue", alpha = alpha)
 }
