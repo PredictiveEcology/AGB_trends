@@ -285,7 +285,6 @@ createForDistPolys <- function(sim) {
 
   gpkgFile <- file.path(outputPath(sim), "ABoVE_DistAgents_study_area.gpkg")
 
-
   rfiles <- list.files(mod$ForDistTilesPath, pattern = ".tif")
 
   ## individual tile bounding boxes
