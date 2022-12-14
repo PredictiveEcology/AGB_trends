@@ -16,19 +16,19 @@ Require::Require(c('sf','terra','stringr'))
 
 ######################################################################
 ## 1.1) Import ABoVE product tiles
-dist_tiles <- st_read('inputs/ABoVE_ForestDisturbance_Agents/ABoVE_DistAgents_study_area.gpkg', 'tileset')
-agb_tiles <- st_read('inputs/ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg', 'tileset')
+dist_tiles <- st_read('outputs/ABoVE_DistAgents_study_area.gpkg', 'tileset')
+agb_tiles <- st_read('outputs/ABoVE_AGB_study_area.gpkg', 'tileset')
 
 ## 1.2) Index 30m ABG input rasters
-agbdsn <- 'inputs/ABoVE_AGB_30m/data'
+agbdsn <- 'inputs/raw/ABoVE_AGB_30m/data'
 agbfiles <- list.files(agbdsn, pattern='AGB_B')
 
 ## 1.3) Index ABoVE disturbance history raster masks
-distdsn <- 'inputs/ABoVE_ForestDisturbance_Agents/data/'
+distdsn <- 'inputs/raw/ABoVE_ForestDisturbance_Agents/data/'
 distfiles <- list.files(distdsn, pattern='.tif')
 
 ## 1.4) Import WBI study area
-wbi <- st_read('inputs/WBI/WBI_studyArea.gpkg')
+wbi <- st_read('outputs/WBI_studyArea.gpkg')
 
 ## 1.5) Reduce input file selection to tiles contained within WBI study area & align filename indices
 agbfiles <- agbfiles[apply(relate(x=vect(agb_tiles), y=vect(wbi), relation='intersects'), 1, any)]
@@ -53,7 +53,7 @@ ptime <- system.time({
     library(terra)
     terraOptions(tempdir='scratch', todisc=TRUE)
     
-    tdir <- file.path('inputs/ABoVE_AGB_30m', tilenames[i])
+    tdir <- file.path('inputs/clean/tiled', tilenames[i])
     if(!file.exists(tdir)) dir.create(tdir)
     
     ## Import AGB raster tile (0 = NA)
@@ -67,7 +67,7 @@ ptime <- system.time({
     ## 1 c) step ii) determine stand age as of year associated with raster layer (negative values become NA)
     ## 1 c) step iii) split into 5 year age categories
     rage <- classify(as.integer(names(ragb)) -
-                       (2020 - crop(project(rast('inputs/CaNFIR/mosaic_age.tif'),
+                       (2020 - crop(project(rast('inputs/raw/CaNFIR/mosaic_age.tif'),
                                             ragb[[1]], method='near'), ragb[[1]])),
                      rcl=cbind(-100, 0, NA), include.lowest=T)
     
