@@ -153,7 +153,7 @@ provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$
 
 studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL)
 
-gpkgFile <- file.path(prjPaths$inputPath, "WBI", "WBI_studyArea.gpkg")
+gpkgFile <- file.path(prjPaths$outputPath, "WBI_studyArea.gpkg")
 if (!file.exists(gpkgFile)) {
   st_write(studyAreaWBI, dsn = gpkgFile, driver = "GPKG")
 }

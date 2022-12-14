@@ -160,8 +160,8 @@ Init <- function(sim) {
 
   sim$studyArea <- st_transform(sim$studyArea, mod$targetCRS)
 
-  mod$AGBTilesPath <- file.path(mod$dPath, "ABoVE_AGB_30m", "data")
-  mod$ForDistTilesPath <- file.path(mod$dPath, "ABoVE_ForestDisturbance_Agents", "data")
+  mod$AGBTilesPath <- file.path(mod$dPath, "raw", "ABoVE_AGB_30m", "data")
+  mod$ForDistTilesPath <- file.path(mod$dPath, "raw", "ABoVE_ForestDisturbance_Agents", "data")
 
   mod$AGBTiles <- drive_ls(P(sim)$urlAGBTiles)
   mod$ForDistTiles <- drive_ls(P(sim)$urlForDistTiles)
@@ -234,7 +234,7 @@ downloadFromGoogleDrive <- function(sim) {
                targetFile = "mosaic_age.tif",
                fun = "raster::raster",
                alsoExtract = "similar",
-               destinationPath = file.path(mod$dPath, "CaNFIR"),
+               destinationPath = file.path(mod$dPath, "raw", "CaNFIR"),
                #overwrite = TRUE,
                userTags = c("CaNFIR")) ## keywords to use in the cache db to make it easy to find later
 
@@ -246,7 +246,7 @@ downloadFromGoogleDrive <- function(sim) {
 createAGBPolys <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
 
-  gpkgFile <- file.path(dirname(mod$AGBTilesPath), "ABoVE_AGB_study_area.gpkg")
+  gpkgFile <- file.path(outputPath(sim), "ABoVE_AGB_study_area.gpkg")
 
   rfiles <- list.files(mod$AGBTilesPath, pattern = "AGB_B")
 
@@ -283,7 +283,7 @@ createAGBPolys <- function(sim) {
 createForDistPolys <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
 
-  gpkgFile <- file.path(dirname(mod$ForDistTilesPath), "ABoVE_DistAgents_study_area.gpkg")
+  gpkgFile <- file.path(outputPath(sim), "ABoVE_DistAgents_study_area.gpkg")
 
 
   rfiles <- list.files(mod$ForDistTilesPath, pattern = ".tif")
