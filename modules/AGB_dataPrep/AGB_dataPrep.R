@@ -191,7 +191,7 @@ Init <- function(sim) {
   eco[[3]] <- select(eco[[3]], ECOPROVINC, geometry) %>%
     mutate(ECOPROVINCE = ECOPROVINC, ECOPROVINC = NULL, .before = "geometry")
   eco[[4]] <- select(eco[[4]], ZONE_NAME, geometry) %>%
-    mutate(ECOZONE = ZONE_NAME, ZONE_NAME = NULL, .before = "geometry")
+    mutate(ECOZONE = tools::toTitleCase(tolower(ZONE_NAME)), ZONE_NAME = NULL, .before = "geometry")
 
   ## intersect them all, removing slivers, lines, points, etc.
   sim$analysisZones <- eco[[4]] %>%
@@ -366,14 +366,14 @@ plotstudyAreaCoverage <- function(analysisZones, agbTiles, dstTiles, studyAreaNa
   alpha <- 0.3
   ggplot(analysisZones) +
     geom_sf(aes(fill = ZONE), colour = "black", alpha = alpha) +
+    geom_sf(data = st_as_sf(dstTiles), colour = "red", alpha = alpha) +
+    geom_sf(data = st_as_sf(agbTiles), colour = "lightblue", alpha = alpha) +
     theme_bw() +
     annotation_north_arrow(location = "bl", which_north = "true",
                            pad_x = unit(0.25, "in"), pad_y = unit(0.25, "in"),
                            style = north_arrow_fancy_orienteering) +
     xlab("Longitude") + ylab("Latitude") +
-    ggtitle(paste("Analysis zones within", studyAreaName, "study area")) +
-    geom_sf(data = st_as_sf(dstTiles), colour = "red", alpha = alpha) +
-    geom_sf(data = st_as_sf(agbTiles), colour = "lightblue", alpha = alpha)
+    ggtitle(paste("Analysis zones within", studyAreaName, "study area"))
 }
 
 .inputObjects <- function(sim) {
