@@ -1,10 +1,11 @@
 defineModule(sim, list(
   name = "AGB_dataPrep",
-  description = paste("Import 1) above-ground biomass (AGB) and 2) disturbance (year/type) time",
+  description = paste("1) Import a) above-ground biomass (AGB); b) disturbance (year/type) time",
                       "series datasets created through the Arctic-Boreal Vulnerability Experiment",
-                      "(ABoVE) research project (https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34);",
-                      "import 3) CaNFIR kNN stand age estimation (2020) data and create",
-                      "spatial reference polygons corresponding to individual ABoVE tiles."),
+                      "(ABoVE) research project (<https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34>);",
+                      "and c) CaNFIR kNN stand age estimation (2020) data.",
+                      "2) Create spatial reference polygons corresponding to individual ABoVE tiles.",
+                      "3) Estimate pixel ages from ABoVE and CanFIR data."),
   keywords = "", ## TODO
   authors = c(
     person(c("Tyler", "D"), "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut", "cre")),
@@ -16,8 +17,8 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("README.md", "AGB_dataPrep.Rmd"), ## same file
-  reqdPkgs = list("dplyr", "geodata", "ggplot2", "ggspatial", "googledrive", "parallel", "purrr",
-                  "sf", "stringr", "terra",
+  reqdPkgs = list("dplyr", "geodata", "ggplot2", "ggspatial", "googledrive",
+                  "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -73,8 +74,8 @@ doEvent.AGB_dataPrep = function(sim, eventTime, eventType) {
       # schedule future event(s)
       sim <- scheduleEvent(sim, start(sim), "AGB_dataPrep", "download", .first())
       sim <- scheduleEvent(sim, start(sim), "AGB_dataPrep", "createABoVEPolys")
+      sim <- scheduleEvent(sim, start(sim), "AGB_dataPrep", "estimateAge")
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "AGB_dataPrep", "plot")
-      #sim <- scheduleEvent(sim, P(sim)$.saveInitialTime, "AGB_dataPrep", "save")
     },
     download = {
       sim <- downloadFromGoogleDrive(sim)
@@ -90,17 +91,10 @@ doEvent.AGB_dataPrep = function(sim, eventTime, eventType) {
 
       # ! ----- STOP EDITING ----- ! #
     },
-    save = {
+    estimateAge = {
       # ! ----- EDIT BELOW ----- ! #
-      # do stuff for this event
 
-      # e.g., call your custom functions/methods here
-      # you can define your own methods below this `doEvent` function
-
-      # schedule future event(s)
-
-      # e.g.,
-      # sim <- scheduleEvent(sim, time(sim) + P(sim)$.saveInterval, "AGB_dataPrep", "save")
+      sim <- estimatePixelAges(sim)
 
       # ! ----- STOP EDITING ----- ! #
     },
@@ -250,12 +244,13 @@ downloadFromGoogleDrive <- function(sim) {
 
   ## CaNFIR:
   ## NOTE: postProcessing (i.e. crop & re-project) will be wrapped in analysis (much better performance)
+  mod$CaNFIRPath <- file.path(mod$dPath, "raw", "CaNFIR")
   out <- Cache(preProcess,
                url = P(sim)$urlCaNFIR,
                targetFile = "mosaic_age.tif",
                fun = "raster::raster",
                alsoExtract = "similar",
-               destinationPath = file.path(mod$dPath, "raw", "CaNFIR"),
+               destinationPath = mod$CaNFIRPath,
                #overwrite = TRUE,
                userTags = c("CaNFIR")) ## keywords to use in the cache db to make it easy to find later
 
@@ -294,7 +289,7 @@ createAGBPolys <- function(sim) {
     st_write(vtiles, dsn = gpkgFile, layer = "tileset", driver = "GPKG", delete_layer = TRUE)
   }
 
-  mod$agbTiles <- vtiles
+  mod$agbTilePolys <- vtiles
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -334,7 +329,7 @@ createForDistPolys <- function(sim) {
     st_write(vtiles, dsn = gpkgFile, layer = "tileset", driver = "GPKG", delete_layer = TRUE)
   }
 
-  mod$dstTiles <- vtiles
+  mod$dstTilePolys <- vtiles
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -343,14 +338,14 @@ createForDistPolys <- function(sim) {
 plotFun <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
 
-  agbTilesToPlot <- filter(mod$agbTiles, apply(relate(x = vect(mod$agbTiles), y = vect(sim$studyArea),
-                                                      relation = "intersects"), 1, any))
-  dstTilesToPlot <- filter(mod$dstTiles, apply(relate(x = vect(mod$dstTiles), y = vect(sim$studyArea),
-                                                      relation = "intersects"), 1, any))
+  agbTilePolysToPlot <- filter(mod$agbTilePolys, apply(relate(x = vect(mod$agbTilePolys), y = vect(sim$studyArea),
+                                                              relation = "intersects"), 1, any))
+  dstTilePolysToPlot <- filter(mod$dstTilePolys, apply(relate(x = vect(mod$dstTilePolys), y = vect(sim$studyArea),
+                                                              relation = "intersects"), 1, any))
 
   Plots(mutate(sim$analysisZones, ZONE = get(toupper(P(sim)$analysisZonesType))),
-        agbTiles = agbTilesToPlot,
-        dstTiles = dstTilesToPlot,
+        agbTilePolys = agbTilePolysToPlot,
+        dstTilePolys = dstTilePolysToPlot,
         studyAreaName = P(sim)$.studyAreaName,
         fn = plotstudyAreaCoverage,
         filename = paste("analysis_zones", P(sim)$.studyAreaName, toupper(P(sim)$analysisZonesType),
@@ -362,12 +357,12 @@ plotFun <- function(sim) {
   return(invisible(sim))
 }
 
-plotstudyAreaCoverage <- function(analysisZones, agbTiles, dstTiles, studyAreaName, ...) {
+plotstudyAreaCoverage <- function(analysisZones, agbTilePolys, dstTilePolys, studyAreaName, ...) {
   alpha <- 0.3
   ggplot(analysisZones) +
     geom_sf(aes(fill = ZONE), colour = "black", alpha = alpha) +
-    geom_sf(data = st_as_sf(dstTiles), colour = "red", alpha = alpha) +
-    geom_sf(data = st_as_sf(agbTiles), colour = "lightblue", alpha = alpha) +
+    geom_sf(data = st_as_sf(dstTilePolys), colour = "red", alpha = alpha) +
+    geom_sf(data = st_as_sf(agbTilePolys), colour = "lightblue", alpha = alpha) +
     theme_bw() +
     annotation_north_arrow(location = "bl", which_north = "true",
                            pad_x = unit(0.25, "in"), pad_y = unit(0.25, "in"),
@@ -386,6 +381,102 @@ plotstudyAreaCoverage <- function(analysisZones, agbTiles, dstTiles, studyAreaNa
   if (!suppliedElsewhere("studyArea", sim)) {
     stop("studyArea must be supplied by user")
   }
+
+  # ! ----- STOP EDITING ----- ! #
+  return(invisible(sim))
+}
+
+estimatePixelAges <- function(sim) {
+  # ! ----- EDIT BELOW ----- ! #
+
+  agbTilePolys <- mod$agbTilePolys
+  dstTilePolys <- mod$dstTilePolys
+
+  AGBTilesPath <- checkPath(mod$AGBTilesPath)
+  ForDistTilesPath <- checkPath(mod$ForDistTilesPath)
+  CanFIRPath <- checkPath(mod$CaNFIRPath)
+  terraScratchPath <- terraPath(sim)
+  cleanTilePath <- checkPath(file.path(mod$dPath, "clean", "tiled"), create = TRUE)
+
+  ## reduce input file selection to tiles contained within study area & align filename indices
+  agbTilesSA <- agbTilePolys$tile_name[apply(relate(x = vect(agbTilePolys), y = vect(sim$studyArea),
+                                                        relation = "intersects"), 1, any)]
+  tileNames <- str_sub(str_remove_all(agbTilesSA, "ABoVE_AGB_"), end = -5L)
+  dstTilesSA <- dstTilePolys$tile_name[match(tileNames, str_sub(dstTilePolys$tile_name, end = 7L))]
+
+  checkPath(file.path(cleanTilePath, tileNames), create = TRUE)
+
+  ## setup cluster to process in parallel
+  if (isTRUE(P(sim)$.useParallel)) {
+    ncores <- max(length(tileNames), 10L, availableCores(constraints = "connections")) ## TODO: why 10 here? ram use (50 GB each))
+  } else {
+    ncores <- 1L
+  }
+
+  cl <- makeClusterPSOCK(ncores, default_packages = c("terra"), rscript_libs = .libPaths(), autoStop = TRUE)
+
+  clusterExport(cl, varlist = c("AGBTilesPath", "agbTilesSA", "CanFIRPath", "cleanTilePath",
+                                "dstTilesSA", "ForDistTilesPath", "terraScratchPath", "tileNames"),
+                envir = environment())
+
+  parLapply(cl, 1:length(tileNames), function(i) {
+    terraOptions(tempdir = terraScratchPath, todisc = TRUE)
+
+    tdir <- file.path(cleanTilePath, tileNames[i])
+    agbYears <- 1984L:2014L
+
+    ## Import AGB raster tile (0 = NA)
+    rAGB <- rast(file.path(AGBTilesPath, agbTilesSA[i]))
+    names(rAGB) <- agbYears
+
+    ## Restrict selection to available disturbance history years
+    NAflag(rAGB) <- 0
+
+    ## 1 c) step i) project stand age mosaic (kNN 2020) to ABoVE CRS & crop to tile
+    ## 1 c) step ii) determine stand age as of year associated with raster layer (negative values become NA)
+    ## 1 c) step iii) split into 5 year age categories
+    rAge <- classify(as.integer(names(rAGB)) -
+                       (2020L - crop(project(rast(file.path(CanFIRPath, "mosaic_age.tif")),
+                                             rAGB[[1]], method = "near"), rAGB[[1]])),
+                     rcl = cbind(-100, 0, NA), include.lowest = TRUE)
+    names(rAge) <- agbYears # 3.63 min
+
+    ###############################################################################
+    ## Import disturbance history (ABoVE) & mask pixels in PRE-disturbance years
+    dstYears <- 1987L:2012L
+    rDst <- rast(file.path(ForDistTilesPath, dstTilesSA[i]))
+    names(rDst) <- dstYears
+
+    ## identify year of earliest disturbance for each cell in tile (according to ABoVE product)
+    chid <- app(
+      rast(lapply(names(rDst), function(k) {
+        classify(rDst[[k]], rcl = cbind(1, 3, as.integer(k)), include.lowest = TRUE)
+      })),
+      fun = min,
+      na.rm = TRUE
+    ) # 106 sec
+
+    ## Render NA all cell values pre-dating disturbances (where stand age cannot be known)
+    ## & modify age for cells post-dating disturbances (according to ABoVE disturbance product)
+    ## * only possible for years 1987-2012 *
+    rAge <- writeRaster(
+      rast(lapply(1:nlyr(rAge), function(j) {
+        return(ifel(is.na(chid), rAge[[j]],
+                    ifel(chid < as.integer(names(rAge)[j]), as.integer(names(rAge)[j]) - chid, NA)))
+      })),
+      filename = file.path(tdir, paste0("rage_", tileNames[i], ".tif")),
+      overwrite = TRUE
+    ) # 371 sec
+
+    mask(rAGB, rAge,
+         filename = file.path(tdir, paste0("ragb_", tileNames[i], ".tif")),
+         overwrite = TRUE) # ~ 2 min
+
+    rm(list = c("rAGB", "rAge", "rDst", "chid"))
+    gc()
+  })
+
+  stopCluster(cl)
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
