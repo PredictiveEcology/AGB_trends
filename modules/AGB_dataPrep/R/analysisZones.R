@@ -11,13 +11,15 @@ createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
   )
 
   eco <- lapply(urlList, function(url) {
-    prepInputs(url = url,
-               destinationPath = destinationPath,
-               studyArea = studyArea,
-               fun = "sf::st_read",
-               overwrite = TRUE) %>%
-      st_transform(targetCRS) %>%
-      st_cast("POLYGON")
+    suppressWarnings({
+      prepInputs(url = url,
+                 destinationPath = destinationPath,
+                 studyArea = studyArea,
+                 fun = "sf::st_read",
+                 overwrite = TRUE) %>%
+        st_transform(targetCRS) %>%
+        st_cast("POLYGON")
+    })
   })
 
   eco[[1]] <- select(eco[[1]], ECODISTRIC, geometry) %>%
