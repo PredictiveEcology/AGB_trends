@@ -23,13 +23,14 @@ createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
   })
 
   eco[[1]] <- select(eco[[1]], ECODISTRIC, geometry) %>%
-    mutate(ECODISTRICT = ECODISTRIC, ECODISTRIC = NULL, .before = "geometry")
+    dplyr::rename(ECODISTRICT = ECODISTRIC)
   eco[[2]] <- select(eco[[2]], REGION_NAM, geometry) %>%
-    mutate(ECOREGION = REGION_NAM, REGION_NAM = NULL, .before = "geometry")
+    dplyr::rename(ECOREGION = REGION_NAM)
   eco[[3]] <- select(eco[[3]], ECOPROVINC, geometry) %>%
-    mutate(ECOPROVINCE = ECOPROVINC, ECOPROVINC = NULL, .before = "geometry")
+    dplyr::rename(ECOPROVINCE = ECOPROVINC)
   eco[[4]] <- select(eco[[4]], ZONE_NAME, geometry) %>%
-    mutate(ECOZONE = tools::toTitleCase(tolower(ZONE_NAME)), ZONE_NAME = NULL, .before = "geometry")
+    dplyr::rename(ECOZONE = ZONE_NAME) %>%
+    mutate(ECOZONE = tools::toTitleCase(tolower(ECOZONE)))
 
   ## intersect them all, removing slivers, lines, points, etc.
   analysisZones <- eco[[4]] %>%
@@ -37,7 +38,6 @@ createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
     st_intersection(eco[[2]]) %>%
     st_intersection(eco[[1]]) %>%
     st_buffer(0)
-  analysisZones <- analysisZones[, -which(grepl("[.]before", colnames(analysisZones)))]
   analysisZones <- analysisZones[which(!is.na(st_dimension(analysisZones))), ]
   rownames(analysisZones) <- 1:nrow(analysisZones)
 
