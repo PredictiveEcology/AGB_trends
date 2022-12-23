@@ -160,7 +160,7 @@ Init <- function(sim) {
   mod$AGBTiles <- drive_ls(P(sim)$urlAGBTiles)
   mod$ForDistTiles <- drive_ls(P(sim)$urlForDistTiles)
 
-  sim$analysisZones <- createAnalysisZones(sim$studyArea, mod$targetCRS, mod$dPath)
+  sim$analysisZones <- Cache(createAnalysisZones, sim$studyArea, mod$targetCRS, mod$dPath)
   # ! ----- STOP EDITING ----- ! #
 
   return(invisible(sim))
