@@ -1,4 +1,8 @@
 createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
+  if (is(studyArea, "sf")) {
+    studyArea <- as_Spatial(studyArea)
+  }
+
   urlList <- list(
     ecodistrict = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/district/ecodistrict_shp.zip",
     ecoregion = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/region/ecoregion_shp.zip",
