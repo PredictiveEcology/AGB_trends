@@ -474,7 +474,7 @@ estimatePixelAges <- function(sim) {
 
     rm(list = c("rAGB", "rAge", "rDst", "chid"))
     gc()
-  })
+  }) ## TODO: need to cache or otherwise skip tiles that have already been run
 
   stopCluster(cl)
 
