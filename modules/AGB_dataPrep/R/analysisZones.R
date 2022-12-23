@@ -1,5 +1,5 @@
 createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
-  if (is(studyArea, "sf")) {
+  if (!is(studyArea, "Spatial")) {
     studyArea <- as_Spatial(studyArea)
   }
 
