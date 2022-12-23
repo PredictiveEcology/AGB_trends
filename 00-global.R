@@ -28,7 +28,9 @@ stopifnot(identical(normalizePath(prjDir), getwd())) ## ensure we're working in 
 ## see https://github.com/r-lib/callr/issues/172
 if (grepl("for-cast[.]ca", .nodename) && !grepl("larix", .nodename)) {
   oldTmpDir <- tempdir()
-  newTmpDir <-  tools::file_path_as_absolute(file.path("/mnt/scratch", .user, basename(prjDir), "tmp"))
+  newTmpDir <- file.path("/mnt/scratch", .user, basename(prjDir), "tmp")
+  if (!dir.exists(newTmpDir)) dir.create(newTmpDir, recursive = TRUE)
+  newTmpDir <- tools::file_path_as_absolute(newTmpDir)
   Sys.setenv(TMPDIR = newTmpDir)
   unlink(oldTmpDir, recursive = TRUE)
   tempdir(check = TRUE)
