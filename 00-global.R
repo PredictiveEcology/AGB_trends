@@ -24,6 +24,16 @@ prjDir <- switch(.user,
 
 stopifnot(identical(normalizePath(prjDir), getwd())) ## ensure we're working in the project directory
 
+## set new temp dir in scratch directory (existing /tmp too small for large callr ops)
+## see https://github.com/r-lib/callr/issues/172
+if (grepl("for-cast[.]ca", .nodename) && !grepl("larix", .nodename)) {
+  oldTmpDir <- tempdir()
+  newTmpDir <-  tools::file_path_as_absolute(file.path("/mnt/scratch", .user, basename(prjDir), "tmp"))
+  Sys.setenv(TMPDIR = newTmpDir)
+  unlink(oldTmpDir, recursive = TRUE)
+  tempdir(check = TRUE)
+}
+
 options(
   Ncpus = .ncores,
   repos = c(CRAN = "https://cran.rstudio.com"),
