@@ -35,7 +35,7 @@ createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
     st_intersection(eco[[2]]) %>%
     st_intersection(eco[[1]]) %>%
     st_buffer(0)
-  analysisZones <- analysisZones[, -which(grepl("[.]before", colnames(az)))]
+  analysisZones <- analysisZones[, -which(grepl("[.]before", colnames(analysisZones)))]
   analysisZones <- analysisZones[which(!is.na(st_dimension(analysisZones))), ]
   rownames(analysisZones) <- 1:nrow(analysisZones)
 
