@@ -166,7 +166,6 @@ Init <- function(sim) {
     ecoprovince = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/province/ecoprovince_shp.zip",
     ecozone = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip"
   )
-  url <- urlList[[tolower(P(sim)$analysisZonesType)]]
 
   eco <- lapply(urlList, function(url) {
     prepInputs(url = url,
