@@ -162,6 +162,8 @@ do.call(SpaDES.core::setPaths, prjPaths) ## set paths for simulation
 
 ## define study area
 
+sf_use_s2(FALSE)
+
 ## "Canada_Albers_Equal_Area_Conic" - no recognized EPSG code, using wkt:
 targetCRS <- paste0("PROJCRS[\"Canada_Albers_Equal_Area_Conic\",\n",
                         "    BASEGEOGCRS[\"NAD83\",\n",
@@ -208,6 +210,8 @@ myStudyArea <- switch(
                     url = "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip",
                     destinationPath = file.path(prjPaths$inputPath, "WBI"),
                     fun = "sf::st_read") %>%
+      st_as_sf() %>%
+      st_transform(targetCRS) %>%
       filter(BCR %in% c(4, 6:8))
 
     provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) %>%
@@ -216,7 +220,9 @@ myStudyArea <- switch(
       filter(NAME_1 %in% c("British Columbia", "Alberta", "Saskatchewan", "Manitoba",
                            "Yukon", "Northwest Territories", "Nunavut"))
 
-    studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL)
+    studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL) %>%
+      st_union() %>%
+      st_buffer(0)
 
     gpkgFile <- file.path(prjPaths$outputPath, "WBI_studyArea.gpkg")
     if (!file.exists(gpkgFile)) {

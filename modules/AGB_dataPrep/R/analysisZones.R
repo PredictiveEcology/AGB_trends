@@ -1,4 +1,4 @@
-createAnalysisZones <- function(studyArea, destinationPath) {
+createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
   urlList <- list(
     ecodistrict = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/district/ecodistrict_shp.zip",
     ecoregion = "https://sis.agr.gc.ca/cansis/nsdb/ecostrat/region/ecoregion_shp.zip",
@@ -12,7 +12,7 @@ createAnalysisZones <- function(studyArea, destinationPath) {
                studyArea = studyArea,
                fun = "sf::st_read",
                overwrite = TRUE) %>%
-      st_transform(mod$targetCRS) %>%
+      st_transform(targetCRS) %>%
       st_cast("POLYGON")
   })
 
@@ -31,6 +31,7 @@ createAnalysisZones <- function(studyArea, destinationPath) {
     st_intersection(eco[[2]]) %>%
     st_intersection(eco[[1]]) %>%
     st_buffer(0)
+  analysisZones <- analysisZones[, -which(grepl("[.]before", colnames(az)))]
   analysisZones <- analysisZones[which(!is.na(st_dimension(analysisZones))), ]
   rownames(analysisZones) <- 1:nrow(analysisZones)
 
