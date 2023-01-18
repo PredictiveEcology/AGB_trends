@@ -138,6 +138,8 @@ prjPaths <- list(
 prjPaths$rasterPath <- checkPath(file.path(prjPaths$scratchPath, "raster"), create = TRUE)
 prjPaths$terraPath <- checkPath(file.path(prjPaths$scratchPath, "terra"), create = TRUE)
 
+do.call(SpaDES.core::setPaths, prjPaths) ## set paths for simulation
+
 # project options -----------------------------------------------------------------------------
 
 # opts <- SpaDES.config::setProjectOptions(config)
@@ -158,7 +160,6 @@ SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
 
 # simulation ----------------------------------------------------------------------------------
 
-do.call(SpaDES.core::setPaths, prjPaths) ## set paths for simulation
 
 ## define study area
 
