@@ -210,19 +210,18 @@ myStudyArea <- switch(
     bcrWBI <- Cache(prepInputs,
                     url = "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip",
                     destinationPath = file.path(prjPaths$inputPath, "WBI"),
-                    fun = "sf::st_read") %>%
-      st_as_sf() %>%
-      st_transform(targetCRS) %>%
+                    fun = "sf::st_read") |>
+      st_transform(targetCRS) |>
       filter(BCR %in% c(4, 6:8))
 
-    provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) %>%
-      st_as_sf() %>%
-      st_transform(targetCRS) %>%
+    provsWBI <- geodata::gadm(country = "CAN", level = 1, path = file.path(prjPaths$inputPath, "WBI")) |>
+      st_as_sf() |>
+      st_transform(targetCRS) |>
       filter(NAME_1 %in% c("British Columbia", "Alberta", "Saskatchewan", "Manitoba",
                            "Yukon", "Northwest Territories", "Nunavut"))
 
-    studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL) %>%
-      st_union() %>%
+    studyAreaWBI <- Cache(postProcess, provsWBI, studyArea = bcrWBI, useSAcrs = TRUE, filename2 = NULL) |>
+      st_union() |>
       st_buffer(0)
 
     gpkgFile <- file.path(prjPaths$outputPath, "WBI_studyArea.gpkg")
@@ -234,10 +233,9 @@ myStudyArea <- switch(
   },
   development = {
     ## random study area for development
-    ctr1 <- sp::SpatialPoints(matrix(c(-113.530, 61.530), ncol = 2))
-    crs(ctr1) <- "EPSG:4326"
-    studyAreaRnd1 <- SpaDES.tools::randomStudyArea(ctr1, size = 3e10, seed = 42) %>%
-      st_as_sf() %>%
+    ctr1 <- terra::vect(cbind(x = -113.530, y = 61.530), crs = "EPSG:4326")
+    studyAreaRnd1 <- SpaDES.tools::randomStudyArea(ctr1, size = 3e10, seed = 42) |>
+      st_as_sf() |>
       st_transform(targetCRS)
 
     studyAreaRnd1
@@ -246,8 +244,8 @@ myStudyArea <- switch(
     ## random study area for testing (larger + diff location than devel)
     ctr2 <- sp::SpatialPoints(matrix(c(-126.95, 61.30), ncol = 2))
     crs(ctr2) <- "EPSG:4326"
-    studyAreaRnd2 <- SpaDES.tools::randomStudyArea(ctr2, size = 6e10, seed = pi) %>%
-      st_as_sf() %>%
+    studyAreaRnd2 <- SpaDES.tools::randomStudyArea(ctr2, size = 6e10, seed = pi) |>
+      st_as_sf() |>
       st_transform(targetCRS)
 
     studyAreaRnd2
