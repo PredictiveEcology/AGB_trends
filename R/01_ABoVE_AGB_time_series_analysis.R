@@ -17,7 +17,7 @@ file.remove(file.path('/mnt/scratch/trudolph/AGB_trends/terra', list.files('/mnt
 
 oldTmpDir <- tempdir()
 newTmpDir <- file.path("/mnt/scratch/trudolph/AGB_trends/tmp")
-if(!dir.exists(newTmpDir)) dir.create(newTmpDir, recursive = TRUE)
+if (!dir.exists(newTmpDir)) dir.create(newTmpDir, recursive = TRUE)
 newTmpDir <- tools::file_path_as_absolute(newTmpDir)
 Sys.setenv(TMPDIR = newTmpDir)
 unlink(oldTmpDir, recursive = TRUE)
@@ -27,58 +27,33 @@ terraOptions(tempdir = '/mnt/scratch/trudolph/AGB_trends/terra',
              memmax = 25,
              memfrac = 0.8,
              progress = 1,
-             verbose = T)
+             verbose = TRUE)
 
-tile_folders <- sort(list.files('inputs/clean/tiled', pattern='Bh', full.names = T))
+tile_folders <- sort(list.files('inputs/clean/tiled', pattern='Bh', full.names = TRUE))
 
 ################################################################################
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series
 ## aka "local" or "geographically weighted regression (GWR)"
 
 sapply(1:length(tile_folders), function(i) {
-
   ## 1.1.1) Derive slope of numerical vector across a time series
-  slope <- function(x) {
-    y <- which(!is.na(x))
-    if(length(y) >= 2) {
-      x <- unlist(x[!is.na(x)])
-      if(length(unique(x)) == 1) {
-        return(0)
-      } else {
-        return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
-      }
-    } else {
-      return(NA)
-    }
-  }
-
   terraOptions(datatype = 'FLT4S')
-  app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern='ragb'))),
-      fun = function(x, ff) ff(x), cores=32, ff=slope,
-      filename = file.path(tile_folders[i], paste0('agb_slopes_', str_sub(tile_folders[i], start=-7L),'.tif')),
-      overwrite = T)
+  app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern = 'ragb'))),
+      fun = function(x, ff) ff(x), cores = 32, ff = slope,
+      filename = file.path(tile_folders[i], paste0('agb_slopes_', str_sub(tile_folders[i], start = -7L), '.tif')),
+      overwrite = TRUE)
 
   ## 1.1.2) stock number of non-NA values for subsequent weighted standard deviation
-  nsamp <- function(x) {
-    x <- sum(!is.na(x))
-    if(x > 1) {
-      return(x)
-    } else {
-      return(NA)
-    }
-  }
-
   terraOptions(datatype = 'INT1U')
   app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern = 'ragb'))),
       fun = function(x, ff) ff(x), cores = 10, ff = nsamp,
       filename = file.path(tile_folders[i], paste0('agb_sample_size_', str_sub(tile_folders[i], start = -7L),'.tif')),
-      overwrite = T)
+      overwrite = TRUE)
 
   return(invisible(NULL))
-
 }) # ~ 7 hrs
 
-
+################################################################################
 ## 1.2) Combine tiled slope rasters into unified mosaics
 
 ## 1.2.1) Build virtual rasters
@@ -105,21 +80,6 @@ for(i in 1:length(tile_folders)) {
 
   sapply(1:length(timeint), function(timestep) {
 
-    ## Derive slope of numerical vector across a time series
-    slope <- function(x) {
-      y <- which(!is.na(x))
-      if(length(y) >= 2) {
-        x <- unlist(x[!is.na(x)])
-        if(length(unique(x)) == 1) {
-          return(0)
-        } else {
-          return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
-        }
-      } else {
-        return(NA)
-      }
-    }
-
     ## 2.1.1) calculate local slope coefficient for specified time interval
     terraOptions(datatype = 'FLT4S')
     app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern='ragb')))[[timeint[[timestep]]]],
@@ -128,15 +88,6 @@ for(i in 1:length(tile_folders)) {
         overwrite = T)
 
     ## 2.1.2) stock number of non-NA values for subsequent weighted standard deviation
-    nsamp <- function(x) {
-      x <- sum(!is.na(x))
-      if(x > 1) {
-        return(x)
-      } else {
-        return(NA)
-      }
-    }
-
     terraOptions(datatype = 'INT1U')
     app(rast(file.path(tile_folders[i], list.files(tile_folders[i], pattern='ragb')))[[timeint[[timestep]]]],
         fun = function(x, ff) ff(x), cores = 10, ff = nsamp,
@@ -152,7 +103,7 @@ for(i in 1:length(tile_folders)) {
 ########
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics
 Require::Require('parallel')
-no_cores <- 6
+no_cores <- 6 ## TODO: why 6? length(timeint)?
 cl <- parallelly::makeClusterPSOCK(no_cores,
                                    default_packages = c("terra","gdalUtilities","stringr"),
                                    rscript_libs = .libPaths(),
@@ -163,7 +114,7 @@ parallel::clusterEvalQ(cl, {
                memmax = 25,
                memfrac = 0.6,
                progress = 1,
-               verbose = T)
+               verbose = TRUE)
 })
 
 parLapply(cl, names(timeint), function(tp) {
@@ -330,25 +281,27 @@ parallel::stopCluster(cl)
 ## 5) Calculate comparative summary statistics by categorical zone of interest for all time periods
 
 ## Note in following that age at beginning of the 31 year time series (1984-2014) is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
-irast <- list(slope = file.path('outputs', list.files('outputs', pattern='slope_mosaic')),
-              w = file.path('outputs', list.files('outputs', pattern='sample_size')),
-              ## ** these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used for the complete time series slope raster mosaic stats assessment. this should be '1', but currently set to 6 years in b/c disturbed pixels are only known as of 1987 **
-              ecozone = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecozone'))[-c(2,4,6,8,10,12)][c(1:6,2)],
-              ecoregion = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoregion'))[-c(2,4,6,8,10,12)][c(1:6,2)],
-              ecoprovince = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoprovince'))[-c(2,4,6,8,10,12)][c(1:6,2)])
+irast <- list(
+  slope = list.files('outputs', pattern = "slope_mosaic", full.names = TRUE),
+  w = list.files('outputs', pattern = "sample_size", full.names = TRUE),
+  ## these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used
+  ## for the complete time series slope raster mosaic stats assessment.
+  ## this should be '1', but currently set to 6 years in b/c disturbed pixels are only known as of 1987
+  ecozone = list.files('outputs', pattern = 'ZOIxageClass_WBI_ecozone', full.names = TRUE)[-c(2,4,6,8,10,12)][c(1:6,2)],
+  ecoregion = list.files('outputs', pattern = 'ZOIxageClass_WBI_ecoregion', full.names = TRUE)[-c(2,4,6,8,10,12)][c(1:6,2)],
+  ecoprovince = list.files('outputs', pattern = 'ZOIxageClass_WBI_ecoprovince', full.names = TRUE)[-c(2,4,6,8,10,12)][c(1:6,2)]
+)
 
-ncores = 7
+ncores = 7 ## TODO: length(timeint) + 1
 cl <- parallelly::makeClusterPSOCK(ncores, default_packages = c('terra','gdalUtilities','dplyr'),
                                    rscript_libs = .libPaths(), autoStop = TRUE)
 parallel::clusterExport(cl, varlist = c('zoneStats','irast','ncores'), envir = environment())
 parallel::clusterEvalQ(cl, terraOptions(tempdir = '/mnt/scratch/trudolph/AGB_trends/terra', memfrac = 0.5 / ncores))
 
 system.time({
-
   parallel::parLapply(cl, 1:7, function(i, svar = 'ecozone', maskRaster = NULL) {
-
-    ## TO DO: use maskRaster file name to qualify file.id writeRaster tag
-    if(i == 7) {
+    ## TODO: use maskRaster file name to qualify file.id writeRaster tag
+    if (i == 7) {
       file.id <- paste0('WBI_', svar)
       # file.id <- paste0('WBI_distMask_', svar)
     } else {
@@ -364,9 +317,7 @@ system.time({
               file.id = file.id)
 
     return(invisible(NULL))
-
   })
-
 }) # ~ 2 hrs
 
 parallel::stopCluster(cl)
@@ -414,7 +365,30 @@ gp <- plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outpu
 ######################
 ## Functions
 
+## Derive slope of numerical vector across a time series
+slope <- function(x) {
+  y <- which(!is.na(x))
+  if (length(y) >= 2) {
+    x <- unlist(x[!is.na(x)])
+    if (length(unique(x)) == 1) {
+      return(0)
+    } else {
+      return(sum((x - mean(x)) * (y - mean(y))) / sum((x - mean(x)) ^ 2))
+    }
+  } else {
+    return(NA)
+  }
+}
 
+## stock number of non-NA values for subsequent weighted standard deviation
+nsamp <- function(x) {
+  x <- sum(!is.na(x))
+  if (x > 1) {
+    return(x)
+  } else {
+    return(NA)
+  }
+}
 
 ############################################################################
 ## Create unique categorical zones for comparative analysis

@@ -38,8 +38,7 @@ if (grepl("for-cast[.]ca", .nodename) && !grepl("larix", .nodename)) {
 
 options(
   Ncpus = .ncores,
-  repos = c(CRAN = "https://cran.rstudio.com"),
-  Require.RPackageCache = "default" ## will use default package cache directory: `RequirePkgCacheDir()`
+  repos = c(CRAN = "https://cloud.r-project.org")
 )
 
 # install and load packages -------------------------------------------------------------------
@@ -54,49 +53,34 @@ if (!"remotes" %in% rownames(installed.packages(lib.loc = .libPaths()[1]))) {
   install.packages("remotes")
 }
 
-Require.version <- "PredictiveEcology/Require@development"
+Require.version <- "PredictiveEcology/Require@v0.3.1" ## use CRAN version
 if (!"Require" %in% rownames(installed.packages(lib.loc = .libPaths()[1])) ||
-    packageVersion("Require", lib.loc = .libPaths()[1]) < "0.2.5") {
+    packageVersion("Require", lib.loc = .libPaths()[1]) != "0.3.1") {
   remotes::install_github(Require.version)
 }
 
 library(Require)
 
-## temporarily until new Rcpp release on CRAN in early 2023 ----------------------------------------
-options("Require.otherPkgs" = setdiff(getOption("Require.otherPkgs"), "Rcpp")) ## remove Rcpp from "forced source"
-RcppVersionNeeded <- package_version("1.0.9.3")
-
-RcppVersionAvail <- if (!"Rcpp" %in% rownames(installed.packages(lib.loc = .libPaths()[1]))) {
-  package_version(data.table::as.data.table(available.packages())[Package == "Rcpp", Version])
-} else {
-  package_version(packageVersion("Rcpp", lib.loc = .libPaths()[1]))
-}
-
-if (RcppVersionAvail < RcppVersionNeeded) {
-  Require(paste0("Rcpp (>= ", RcppVersionNeeded, ")"),  repos = "https://rcppcore.github.io/drat",
-          require = FALSE, verbose = 1)
-}
-##
-
 setLinuxBinaryRepo()
 
-Require(c("PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
-          "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
-          "PredictiveEcology/SpaDES.tools@development"),
-        upgrade = FALSE, standAlone = TRUE)
+Require(c(
+  "PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
+  "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
+  "PredictiveEcology/SpaDES.tools@development"
+), standAlone = TRUE, upgrade = FALSE)
 
 modulePkgs <- unname(unlist(packagesInModules(modulePath = file.path(prjDir, "modules"))))
 otherPkgs <- c(
-  "archive", "details", "DBI", "s-u/fastshp", "logging", "RPostgres", "RSQLite"
+  "archive", "details", "DBI", "s-u/fastshp", "httpuv", "logging", "RPostgres", "RSQLite"
 )
 
-Require(unique(c(modulePkgs, otherPkgs)), require = FALSE, standAlone = TRUE, upgrade = FALSE)
+Install(unique(c(modulePkgs, otherPkgs)), standAlone = TRUE, upgrade = FALSE)
 
 ## NOTE: always load packages LAST, after installation above;
 ##       ensure plyr loaded before dplyr or there will be problems
 Require(c("data.table", "plyr", "pryr", "SpaDES.core",
           "dplyr", "googledrive", "httr", "sessioninfo", "sf", "terra"),
-        upgrade = FALSE, standAlone = TRUE)
+        standAlone = TRUE, upgrade = FALSE)
 
 # configure project ---------------------------------------------------------------------------
 
@@ -159,7 +143,6 @@ quickPlot::dev.useRSGD(useRSGD = quickPlot::isRstudioServer())
 SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
 
 # simulation ----------------------------------------------------------------------------------
-
 
 ## define study area
 
@@ -259,12 +242,19 @@ mySim <- simInitAndSpades(
     AGB_dataPrep = list(
       analysisZonesType = "ecozone",
       .plots = c("screen", "png", "raw"),
-      .studyAreaName = if (.mode == "production") "WBI" else "test"
+      .studyAreaName = if (.mode == "production") "WBI" else "test",
+      .useParallel = TRUE
+    ),
+    AGB_analyses = list(
+      analysisZonesType = "ecozone",
+      .plots = c("screen", "png", "raw"),
+      .studyAreaName = if (.mode == "production") "WBI" else "test",
+      .useParallel = TRUE
     )
   ),
   objects = list(
     studyArea = myStudyArea
   ),
-  modules = list("AGB_dataPrep"),
+  modules = list("AGB_dataPrep", "AGB_analyses"),
   paths = prjPaths
 )
