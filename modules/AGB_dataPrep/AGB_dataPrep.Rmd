@@ -41,7 +41,7 @@ dir.create("figures", showWarnings = FALSE)
 
 download.file(url = "https://img.shields.io/badge/Made%20with-Markdown-1f425f.png",
               destfile = "figures/markdownBadge.png",
-              mode = 'wb')
+              mode = "wb")
 ```
 
 [![made-with-Markdown](figures/markdownBadge.png)](http://commonmark.org)
@@ -71,7 +71,7 @@ Table \@ref(tab:moduleInputs-AGB-dataPrep) shows the full list of module inputs.
 ```{r moduleInputs-AGB-dataPrep, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 df_inputs <- SpaDES.core::moduleInputs("AGB_dataPrep", "..")
 knitr::kable(df_inputs,
-             caption = "List of (ref:AGB-dataPrep) input objects and their description.") %>%
+             caption = "List of (ref:AGB-dataPrep) input objects and their description.") |>
   kableExtra::kable_styling(latex_options = "scale_down", full_width = TRUE)
 ```
 
@@ -80,7 +80,7 @@ Provide a summary of user-visible parameters (Table \@ref(tab:moduleParams-AGB-d
 
 ```{r moduleParams-AGB-dataPrep, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 df_params <- SpaDES.core::moduleParams("AGB_dataPrep", "..")
-knitr::kable(df_params, caption = "List of (ref:AGB-dataPrep) parameters and their description.") %>%
+knitr::kable(df_params, caption = "List of (ref:AGB-dataPrep) parameters and their description.") |>
   kableExtra::kable_styling(latex_options = "scale_down", full_width = TRUE)
 ```
 
@@ -102,7 +102,7 @@ Description of the module outputs (Table \@ref(tab:moduleOutputs-AGB-dataPrep)).
 
 ```{r moduleOutputs-AGB-dataPrep, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 df_outputs <- SpaDES.core::moduleOutputs("AGB_dataPrep", "..")
-knitr::kable(df_outputs, caption = "List of (ref:AGB-dataPrep) outputs and their description.") %>%
+knitr::kable(df_outputs, caption = "List of (ref:AGB-dataPrep) outputs and their description.") |>
   kableExtra::kable_styling(latex_options = "scale_down", full_width = TRUE)
 ```
 

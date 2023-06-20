@@ -1,18 +1,20 @@
 defineModule(sim, list(
   name = "AGB_dataPrep",
-  description = paste("1) Import a) above-ground biomass (AGB); b) disturbance (year/type) time",
-                      "series datasets created through the Arctic-Boreal Vulnerability Experiment",
-                      "(ABoVE) research project (<https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34>);",
-                      "and c) CaNFIR kNN stand age estimation (2020) data.",
-                      "2) Create spatial reference polygons corresponding to individual ABoVE tiles.",
-                      "3) Estimate pixel ages from ABoVE and CanFIR data."),
+  description = paste(
+    "1) Import a) above-ground biomass (AGB); b) disturbance (year/type) time",
+    "series datasets created through the Arctic-Boreal Vulnerability Experiment",
+    "(ABoVE) research project (<https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34>);",
+    "and c) CaNFIR kNN stand age estimation (2020) data.",
+    "2) Create spatial reference polygons corresponding to individual ABoVE tiles.",
+    "3) Estimate pixel ages from ABoVE and CanFIR data."
+  ),
   keywords = "", ## TODO
   authors = c(
-    person(c("Tyler", "D"), "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut", "cre")),
+    person("Tyler D", "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut", "cre")),
     person("Alex M", "Chubaty", email = "achubaty@for-cast.ca", role = c("ctb"))
   ),
   childModules = character(0),
-  version = list(AGB_dataPrep = "0.0.0.9000"),
+  version = list(AGB_dataPrep = "0.0.1"),
   timeframe = as.POSIXlt(c(NA, NA)),
   timeunit = "year",
   citation = list("citation.bib"),
@@ -44,11 +46,10 @@ defineModule(sim, list(
     defineParameter(".studyAreaName", "character", NA, NA, NA,
                     "Human-readable name for the study area used - e.g., a hash of the study",
                           "area obtained using `reproducible::studyAreaName()`"),
-    ## .seed is optional: `list('init' = 123)` will `set.seed(123)` for the `init` event only.
-    defineParameter(".seed", "list", list(), NA, NA,
-                    "Named list of seeds to use for each event (names)."),
     defineParameter(".useCache", "logical", FALSE, NA, NA,
-                    "Should caching of events or module be used?")
+                    "Should caching of events or module be used?"),
+    defineParameter(".useParallel", "logical", FALSE, NA, NA,
+                    "Should multiple cpu threads be used where possible?")
   ),
   inputObjects = bindrows(
     expectsInput("studyArea", "sf",
@@ -111,6 +112,8 @@ doEvent.AGB_dataPrep = function(sim, eventTime, eventType) {
 Init <- function(sim) {
   mod$dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
 
+  # ! ----- EDIT BELOW ----- ! #
+
   ## "Canada_Albers_Equal_Area_Conic" - no recognized EPSG code, using wkt:
   mod$targetCRS <- paste0("PROJCRS[\"Canada_Albers_Equal_Area_Conic\",\n",
                           "    BASEGEOGCRS[\"NAD83\",\n",
@@ -150,8 +153,10 @@ Init <- function(sim) {
                           "            LENGTHUNIT[\"metre\",1,\n",
                           "                ID[\"EPSG\",9001]]]]")
 
-  # # ! ----- EDIT BELOW ----- ! #
-
+  ## TODO: in order to allow a user to pass a custam analysis zone,
+  ## they would need to provide studyArea that is a multipolygon with
+  ## a field for that custom zone.
+  ## This means that we cannot assume a simple polygon here, and need to merge/union
   sim$studyArea <- st_transform(sim$studyArea, mod$targetCRS)
 
   mod$AGBTilesPath <- file.path(mod$dPath, "raw", "ABoVE_AGB_30m", "data")
@@ -275,7 +280,7 @@ createForDistPolys <- function(sim) {
 
   ## wide area bounding box
   Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)])))
-  st_crs(Abox) <- st_read(dsn = gpkgFile, layer = "study_area") %>%
+  st_crs(Abox) <- st_read(dsn = gpkgFile, layer = "study_area") |>
     st_crs() # identical CRS to AGB product, but mis-specified
 
   if (!file.exists(gpkgFile)) {
@@ -288,7 +293,7 @@ createForDistPolys <- function(sim) {
     st_as_sf(st_as_sfc(st_bbox(c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]))),
              data.frame(tile_name = rfiles[m]))
   }))
-  st_crs(vtiles) <- st_read(dsn = gpkgFile, layer = "study_area") %>% st_crs() # identical CRS to AGB product, but mis-specified
+  st_crs(vtiles) <- st_read(dsn = gpkgFile, layer = "study_area") |> st_crs() # identical CRS to AGB product, but mis-specified
 
   if (!file.exists(gpkgFile)) {
     st_write(vtiles, dsn = gpkgFile, layer = "tileset", driver = "GPKG", delete_layer = TRUE)
@@ -365,7 +370,7 @@ estimatePixelAges <- function(sim) {
 
   ## reduce input file selection to tiles contained within study area & align filename indices
   agbTilesSA <- agbTilePolys$tile_name[apply(relate(x = vect(agbTilePolys), y = vect(sim$studyArea),
-                                                        relation = "intersects"), 1, any)]
+                                                    relation = "intersects"), 1, any)]
   tileNames <- str_sub(str_remove_all(agbTilesSA, "ABoVE_AGB_"), end = -5L)
   dstTilesSA <- dstTilePolys$tile_name[match(tileNames, str_sub(dstTilePolys$tile_name, end = 7L))]
 

@@ -16,27 +16,27 @@ createAnalysisZones <- function(studyArea, targetCRS, destinationPath) {
                  destinationPath = destinationPath,
                  studyArea = studyArea,
                  fun = "sf::st_read",
-                 overwrite = TRUE) %>%
-        st_transform(targetCRS) %>%
+                 overwrite = TRUE) |>
+        st_transform(targetCRS) |>
         st_cast("POLYGON")
     })
   })
 
-  eco[[1]] <- select(eco[[1]], ECODISTRIC, geometry) %>%
+  eco[[1]] <- select(eco[[1]], ECODISTRIC, geometry) |>
     dplyr::rename(ECODISTRICT = ECODISTRIC)
-  eco[[2]] <- select(eco[[2]], REGION_NAM, geometry) %>%
+  eco[[2]] <- select(eco[[2]], REGION_NAM, geometry) |>
     dplyr::rename(ECOREGION = REGION_NAM)
-  eco[[3]] <- select(eco[[3]], ECOPROVINC, geometry) %>%
+  eco[[3]] <- select(eco[[3]], ECOPROVINC, geometry) |>
     dplyr::rename(ECOPROVINCE = ECOPROVINC)
-  eco[[4]] <- select(eco[[4]], ZONE_NAME, geometry) %>%
-    dplyr::rename(ECOZONE = ZONE_NAME) %>%
+  eco[[4]] <- select(eco[[4]], ZONE_NAME, geometry) |>
+    dplyr::rename(ECOZONE = ZONE_NAME) |>
     mutate(ECOZONE = tools::toTitleCase(tolower(ECOZONE)))
 
   ## intersect them all, removing slivers, lines, points, etc.
-  analysisZones <- eco[[4]] %>%
-    st_intersection(eco[[3]]) %>%
-    st_intersection(eco[[2]]) %>%
-    st_intersection(eco[[1]]) %>%
+  analysisZones <- eco[[4]] |>
+    st_intersection(eco[[3]]) |>
+    st_intersection(eco[[2]]) |>
+    st_intersection(eco[[1]]) |>
     st_buffer(0)
   analysisZones <- analysisZones[which(!is.na(st_dimension(analysisZones))), ]
   rownames(analysisZones) <- 1:nrow(analysisZones)
