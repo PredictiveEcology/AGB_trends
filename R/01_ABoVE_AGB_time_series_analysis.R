@@ -245,11 +245,11 @@ parallel::parLapply(cl, 1:6, function(i) {
 
   ## 3.3) Group into 5 discrete age classes
   ageRast <- classify(rast(paste0('inputs/clean/AGB_age_mosaic_t', i, '.tif')),
-                      rcl=cbind(from=c(0, 25, 50, 80, 125), to=c(25, 50, 80, 125, 500), becomes=1L:5L),
+                      rcl=cbind(from=c(0, 25, 50, 80, 125), to=c(24, 49, 79, 124, 500), becomes=1L:5L),
                       right=FALSE, others=NA_integer_)
 
   names(ageRast) <- 'ageClass'
-  levels(ageRast) <- data.frame(value=1:5, ageClass=paste0(c(0, 25, 50, 80, 125), '-', to=c(25, 50, 80, 125, 500)))
+  levels(ageRast) <- data.frame(value=1:5, ageClass=paste0(c(0, 25, 50, 80, 125), '-', to=c(24, 49, 79, 124, 500)))
   writeRaster(ageRast, paste0('inputs/clean/AGB_age_mosaic_classes_t', i, '.tif'), overwrite=T)
 
   return(invisible(NULL))
@@ -333,9 +333,9 @@ parallel::stopCluster(cl)
 irast <- list(slope = file.path('outputs', list.files('outputs', pattern='slope_mosaic')),
               w = file.path('outputs', list.files('outputs', pattern='sample_size')),
               ## ** these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used for the complete time series slope raster mosaic stats assessment. this should be '1', but currently set to 6 years in b/c disturbed pixels are only known as of 1987 **
-              ecozone = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecozone'))[-c(2,4,6,8,10,12)][c(1:6,2)],
-              ecoregion = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoregion'))[-c(2,4,6,8,10,12)][c(1:6,2)],
-              ecoprovince = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoprovince'))[-c(2,4,6,8,10,12)][c(1:6,2)])
+              ecozone = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecozone'))[-c(2,4,6,8,10,12)][c(1:6,1)],
+              ecoregion = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoregion'))[-c(2,4,6,8,10,12)][c(1:6,1)],
+              ecoprovince = file.path('outputs', list.files('outputs', pattern='ZOIxageClass_WBI_ecoprovince'))[-c(2,4,6,8,10,12)][c(1:6,1)])
 
 ncores = 7
 cl <- parallelly::makeClusterPSOCK(ncores, default_packages = c('terra','gdalUtilities','dplyr'),
@@ -371,31 +371,192 @@ system.time({
 
 parallel::stopCluster(cl)
 
+######################################################################################
+## 6) Diagnostic plots
 
-###################################################################################
-## 6) Plot differences
+## Request 1: range, mode and mean of AGB values by ageClass, year 2000
 
-#####
-## 6 a) without disturbance mask
+## 1 a) range
 
-## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
-plotZoneStats(file2plot = paste0('outputs/zoneStats_summary_WBI_ecozone.rds'))
+## i) make mosaic for year 2000
+tilePath <- list.files('inputs/clean/tiled', full.names = T)
+rPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = 'ragb', full.names = T)))
 
-## x Ecozone x ageClass
-pdf(file = paste0('outputs/AGB_temporal_trends_x_ECOZONE_x_ageClass_', Sys.Date(), '.pdf'))
-lapply(plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern = 'zoneStats_summary_WBI_ecozone_')),
-                              weighted = T, xVar = 'tp', groupVar = 'ageClass', ptype = 2), plot)
+gdalUtilities::gdalbuildvrt(rPath, b = 17, output.vrt = '/mnt/scratch/trudolph/AGB_trends/terra/agb_2000.vrt')
+gdalUtilities::gdalwarp(srcfile = '/mnt/scratch/trudolph/AGB_trends/terra/agb_2000.vrt',
+                        dstfile = 'inputs/clean/agb_mosaic_2000.tif')
+
+## i) rescale by 0.01 and classify into bins similar to Wang et al.
+classify(rast('inputs/clean/agb_mosaic_2000.tif') * 0.01,
+         rcl = c(0, 50, 100, 150, 250),
+         include.lowest = TRUE, brackets = TRUE, right = FALSE,
+         filename = 'inputs/clean/agb_mosaic_2000_classes.tif',
+         overwrite = T)
+
+## ii) compute sum of AGB (in Tg) by age class (t4 = 2000)
+agbSum <- zonal(rast('inputs/clean/agb_mosaic_2000.tif') * 0.09,
+                rast('inputs/clean/AGB_age_mosaic_classes_t4.tif'),
+                fun='sum', na.rm=T)
+
+## iv) compute sum of AGB (in Mg) by AGB class as in Wang et al.
+agbClass <- zonal(rast('inputs/clean/agb_mosaic_2000.tif') * 0.09,
+                  rast('inputs/clean/agb_mosaic_2000_classes.tif'),
+                  fun='sum', na.rm=T)
+
+## iii) visualize AGB (in Tg * 0.01) by age class (Mg/ha * 0.01)
+Require::Require('ggplot2')
+png(file='outputs/AGB_distribution_x_ageClass.png', width=7.5, height=4, units='in', res=300)
+ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_2000 * 1e-6 * 0.01))) +
+  scale_x_discrete(name = 'Stand Age Class', labels = c('0-24','25-49','50-79','80-124','>= 125')) +
+  scale_y_continuous(name = 'AGB (Tg * 0.01)') +
+  geom_bar(stat="identity")
 dev.off()
 
-## x ageClass x Ecozone (THIS ONE CRASHES ATM, not sure why yet)
-pdf(file = paste0('outputs/AGB_temporal_trends_x_ageClass_x_ECOZONE_', Sys.Date(), '.pdf'))
+## iv) visualize AGB (in Tg) by AGB class as per Wang et al. (2021)
+png(file='outputs/AGB_distribution_x_AGBClass.png', width=7.5, height=4, units='in', res=300)
+ggplot(data = agbClass %>%
+         rename(agbClass = agb_mosaic_2000, agb = agb_mosaic_2000.1) %>%
+         mutate(agbClass = factor(agbClass, levels = agbClass)),
+       aes(x = agbClass, y = I(agb * 1e-6 * 0.01))) +
+  scale_x_discrete(name = 'AGB Class (Mg ha-1 * 0.01)',
+                   labels = c('0-50','50-100','100-150','>150')) +
+  scale_y_continuous(name = 'AGB Stock (Tg * 0.01)') +
+  geom_bar(stat="identity")
+dev.off()
+
+## Request 2: cumulative delta AGB by ecozone
+tilePath <- list.files('inputs/clean/tiled', full.names = T)
+agbPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = 'ragb', full.names = T)))
+
+ncores <- 20
+cl <- parallelly::makeClusterPSOCK(ncores, default_packages = c("terra","sf","dplyr"),
+                             rscript_libs = .libPaths(),
+                             autoStop = TRUE)
+parallel::clusterExport(cl, varlist = c('ncores'))
+parallel::clusterEvalQ(cl, {
+  terraOptions(tempdir = '/mnt/scratch/trudolph/AGB_trends/terra',
+               memmax = 25,
+               memfrac = 0.6 / ncores,
+               progress = 1,
+               verbose = T)
+})
+
+
+do.call(rbind, parallel::parLapply(cl, agbPath, function(r) {
+
+  ez <- rasterize(st_read('outputs/WBI_studyArea.gpkg', quiet=T) %>% select('ECOZONE'),
+                  rast(r, lyr = '1984'),
+                  field = 'ECOZONE')
+
+  yrs = names(rast(r))
+
+  x <- do.call(rbind, lapply(yrs, function(yr) {
+    return(zonal(rast(r, lyr = yr) * 0.09, ez, fun='sum', na.rm=T) %>%
+             mutate(Year = yr, .before = all_of(yr)) %>%
+             dplyr::rename(AGB = yr))
+  }))
+
+  return(x)
+
+})) %>%
+
+  saveRDS(., file='outputs/sum_AGB_x_Ecozone.rds')
+
+parallel::stopCluster(cl)
+
+
+ptab <- readRDS('outputs/sum_AGB_x_Ecozone.rds') %>%
+  arrange(ECOZONE, Year) %>%
+  group_by(ECOZONE, Year) %>%
+  summarize(AGB = sum(AGB, na.rm=T) * 1e-6) %>%
+  group_by(ECOZONE) %>%
+  mutate(dAGB = c(0, diff(AGB)),
+         Year = as.integer(Year))
+
+## plot
+
+ecozones <- unique(ptab$ECOZONE)
+
+lapply(1:length(ecozones), function(i) {
+
+  df <- filter(ptab, ECOZONE == ecozones[i]) %>% ungroup()
+
+  # https://finchstudio.io/blog/ggplot-dual-y-axes/
+  # scale and shift variables calculated based on desired mins and maxes
+  max_first  <- max(df$dAGB)   # Specify max of first y axis
+  max_second <- max(df$AGB) # Specify max of second y axis
+  min_first  <- min(df$dAGB)   # Specify min of first y axis
+  min_second <- min(df$AGB) # Specify min of second y axis
+
+  # scale and shift variables calculated based on desired mins and maxes
+  scale = (max_second - min_second)/(max_first - min_first)
+  shift = min_first - min_second
+
+  # Function to scale secondary axis
+  scale_function <- function(x, scale, shift){
+    return ((x)*scale - shift)
+  }
+
+  # Function to scale secondary variable values
+  inv_scale_function <- function(x, scale, shift){
+    return ((x + shift)/scale)
+  }
+
+  png(file = paste0('outputs/figures/AGB_distribution_x_Year_', ecozones[i], '.png'), width=7.5, height=4, units='in', res=300)
+
+  ggplot(data = df %>%
+           bind_rows(., data.frame(ECOZONE = ecozones[i], AGB = NA, Year = 1984, dAGB = 0)),
+         aes(x = Year, y = dAGB, weight = c(rep(1, nrow(df)), 100), color = 'dAGB (Tg)')) +
+    ggtitle(ecozones[i]) +
+    geom_smooth(method='loess') +
+    geom_point(aes(y = inv_scale_function(c(df$AGB, NA), scale, shift), color = 'Total AGB (Tg)'), pch=20, cex = 0.75) +
+    scale_x_continuous(breaks = seq.int(from=1984, to=2014, by=5), labels = identity) +
+    scale_y_continuous('Cumulative AGB change (Tg)', limits = c(min_first, max_first * 1.1),
+                       sec.axis = sec_axis(~scale_function(., scale, shift), name = "Total AGB (Tg)")) +
+    geom_hline(yintercept=0, lty='dashed') +
+    labs(color = 'Units')
+
+  dev.off()
+
+})
+
+
+###################################################################################
+## 7) Plot differences
+
+#####
+## 7 a) without disturbance mask
+
+## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
+png(file='outputs/AGB_global_trends_WBI_ecozone_x_ageClass.png', width=7.5, height=4, units='in', res=300)
+plotZoneStats(file2plot = paste0('outputs/zoneStats_summary_WBI_ecozone.rds'))
+dev.off()
+
+## x Ecozone x ageClass
+# pdf(file = paste0('outputs/AGB_temporal_trends_x_ECOZONE_x_ageClass_', Sys.Date(), '.pdf'))
+# lapply(plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern = 'zoneStats_summary_WBI_ecozone_')),
+#                               weighted = T, xVar = 'tp', groupVar = 'ageClass', ptype = 2), plot)
+# dev.off()
+
+png(file = paste0('outputs/AGB_temporal_trends_x_ECOZONE_x_ageClass_', Sys.Date(), '.png'), width=7.5, height=3, units='in', res=300)
+plot(plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern = 'zoneStats_summary_WBI_ecozone_')),
+                              weighted = T, xVar = 'tp', groupVar = 'ageClass', ptype = 1))
+dev.off()
+
+## x ageClass x Ecozone
+# pdf(file = paste0('outputs/AGB_temporal_trends_x_ageClass_x_ECOZONE_', Sys.Date(), '.pdf'))
 lapply(plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern = 'zoneStats_summary_WBI_ecozone_')),
                               weighted = T, xVar = 'tp', catVar = 'ageClass', groupVar='ECOZONE', ptype = 2), plot)
+# dev.off()
+
+png(file = paste0('outputs/AGB_temporal_trends_x_ageClass_x_ECOZONE_', Sys.Date(), '.png'))
+print(plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern = 'zoneStats_summary_WBI_ecozone_')),
+                              weighted = T, xVar = 'tp', catVar = 'ageClass', groupVar='ECOZONE', ptype = 1))
 dev.off()
 
 #########
-## 6 b) with disturbance mask
-plotZoneStats(file2plot = paste0('outputs/zoneStats_summary_WBI_distMask_ecozone.rds'))
+## 7 b) with disturbance mask
+# plotZoneStats(file2plot = paste0('outputs/zoneStats_summary_WBI_distMask_ecozone.rds'))
 
 ## x ageClass x Ecozone
 pdf(file = paste0('outputs/AGB_temporal_trends_x_ECOZONE_distMask_', Sys.Date(), '.pdf'))
@@ -406,7 +567,7 @@ dev.off()
 gp <- plotZoneStatsIntervals(files2plot = file.path('outputs', list.files('outputs/', pattern='WBI_distMask_ecozone')))
 
 ############################################################
-## 7) Test for significant differences between groups
+## 8) Test for significant differences between groups
 
 
 
@@ -565,6 +726,7 @@ plotZoneStats <- function(file2plot = 'outputs/zoneStats_summary_WBI_ecozone.rds
   Require::Require(c('ggplot2','stringr','dplyr'))
 
   sumtab <- readRDS(file2plot) %>%
+    filter(ECOZONE != 'Southern Arctic') %>%
     mutate(ageClass = factor(ageClass, levels=unique(ageClass), ordered=T))
   catvar <- names(sumtab)[4]
 
@@ -601,6 +763,7 @@ plotZoneStatsIntervals <- function(files2plot = file.path('outputs', list.files(
   ## compile summary tables
   sumtab <- do.call(rbind, lapply(files2plot, function(x) {
     y <- readRDS(x) %>%
+      filter(ECOZONE != 'Southern Arctic') %>%
       mutate(ageClass = factor(ageClass, levels=unique(ageClass), ordered=T))
     y$tp = factor(rep(str_sub(x, start=-6L, end=-5L), nrow(y)),
                   levels = paste0('t', 1:6), ordered=T)

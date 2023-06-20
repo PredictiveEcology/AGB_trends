@@ -5,9 +5,9 @@
 ## Auteur: Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
 ##
 ## Name of script : "00_ABoVE_data_import.R"
-## Description : Import 1) above-ground biomass (AGB) and 2) disturbance (year/type) time series datasets 
+## Description : Import 1) above-ground biomass (AGB) and 2) disturbance (year/type) time series datasets
 ##               created through the Arctic-Boreal Vulnerability Experiment (ABoVE) research project
-##               URL = https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34; 
+##               URL = https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34;
 ##               3) Import CaNFIR kNN stand age estimation (2020)
 ##               4) Create spatial reference polygons corresponding to individual ABoVE tiles
 ##
@@ -17,7 +17,7 @@
 ## global parameters
 Require::Require(c('terra','sf','stringr','dplyr','googledrive','reproducible'))
 terraOptions(tempdir='scratch', todisc=TRUE)
-googledrive::drive_auth(path="forprod-52bae8224d11.json")
+googledrive::drive_auth(path="~/forprod-52bae8224d11.json")
 
 #########################################
 ## 1) download tiled ABoVE AGB rasters
@@ -33,7 +33,7 @@ clusterExport(cl, varlist=c('agbtiles'))
 parLapply(cl, 1:nrow(agbtiles), function(m) {
   library(googledrive)
   googledrive::drive_auth(path="forprod-52bae8224d11.json")
-  retry(quote({ 
+  retry(quote({
     httr::with_config(config = httr::config(http_version = 2), {
       googledrive::drive_download(file=as_id(agbtiles[m,]),
                                   path=file.path('inputs/ABoVE_AGB_30m/data', agbtiles$name[m]),
@@ -59,12 +59,12 @@ clusterExport(cl, varlist=c('distiles'))
 parLapply(cl, 1:nrow(distiles), function(m) {
   library(googledrive)
   googledrive::drive_auth(path="forprod-52bae8224d11.json")
-  retry(quote({ 
+  retry(quote({
     httr::with_config(config = httr::config(http_version = 2), {
       drive_download(file=as_id(distiles[m,]),
                      path=file.path('inputs/ABoVE_ForestDisturbance_Agents/data', distiles$name[m]),
                      overwrite=TRUE)
-    })    
+    })
   }))
 })
 
@@ -100,8 +100,8 @@ boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(
 Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1,3)], apply(boxes, 2, max)[c(2,4)])[c(1,3,2,4)])))
 st_crs(Abox) <- crs(rast(file.path(dsn, rfiles[1])))
 
-st_write(merge(Abox, data.frame(description='ABoVE_AGB_study_area')), 
-         dsn='inputs/ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg', layer='study_area', 
+st_write(merge(Abox, data.frame(description='ABoVE_AGB_study_area')),
+         dsn='inputs/ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg', layer='study_area',
          driver='GPKG', delete_layer=T)
 
 ## append individual tiles
@@ -122,8 +122,8 @@ boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(
 Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1,3)], apply(boxes, 2, max)[c(2,4)])[c(1,3,2,4)])))
 st_crs(Abox) <- st_read(dsn='inputs/ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg', layer='study_area') %>% st_crs() # identical CRS to AGB product, but mis-specified
 
-st_write(merge(Abox, data.frame(description='ABoVE_ForestDisturbance_Agents_study_area')), 
-         dsn='inputs/ABoVE_ForestDisturbance_Agents/ABoVE_DistAgents_study_area.gpkg', layer='study_area', 
+st_write(merge(Abox, data.frame(description='ABoVE_ForestDisturbance_Agents_study_area')),
+         dsn='inputs/ABoVE_ForestDisturbance_Agents/ABoVE_DistAgents_study_area.gpkg', layer='study_area',
          driver='GPKG', delete_layer=T)
 
 ## append individual tiles
@@ -148,7 +148,7 @@ bcrWB <- Cache(prepInputs,
                 cacheRepo = cPath,
                 destinationPath = 'inputs/WBI',
                 targetCRS = targetCRS,
-                fun = "sf::st_read") %>% 
+                fun = "sf::st_read") %>%
   filter(BCR %in% c(4, 6:8))
 
 provsWB <- Cache(prepInputs,
@@ -162,9 +162,9 @@ provsWB <- Cache(prepInputs,
   st_cast(., 'POLYGON')
 
 ## crop WBI to western Cdn provinces and save to file
-studyArea <- bcrWB %>% 
-  st_crop(., provsWB[provsWB$PREABBR != 'Nvt.',]) %>% 
-  st_intersection(., provsWB) %>% 
+studyArea <- bcrWB %>%
+  st_crop(., provsWB[provsWB$PREABBR != 'Nvt.',]) %>%
+  st_intersection(., provsWB) %>%
   group_by(BCR, Label) %>%
   summarize() %>%
   st_write(., dsn='inputs/WBI/WBI_studyArea.gpkg', driver='GPKG', delete_layer=T)
@@ -190,7 +190,7 @@ wbi <- st_read('inputs/WBI/WBI_studyArea.gpkg')
 
 plot(wbi %>% st_geometry)
 plot(filter(dist_tiles, apply(relate(x=vect(dist_tiles), y=vect(wbi), relation='intersects'), 1, any)) %>% st_geometry, border='red', add=T)
-plot(filter(agb_tiles, apply(relate(x=vect(agb_tiles), y=vect(wbi), relation='intersects'), 1, any)) %>% st_geometry, 
+plot(filter(agb_tiles, apply(relate(x=vect(agb_tiles), y=vect(wbi), relation='intersects'), 1, any)) %>% st_geometry,
      border='lightblue', add=T)
 plot(wbi %>% st_geometry, add=T)
 
