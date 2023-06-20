@@ -117,7 +117,7 @@ ptime <- system.time({
          filename = paste0(tdir, '/ragb_', tilenames[i], '.tif'),
          overwrite=T)
 
-    rm(list=c('ragb','rage','rageMask','ageMask','ageSinceDist','rdist','chid'))
+    rm(list = c('ragb','rage','rageMask','ageMask','ageSinceDist','rdist','chid'))
 
     gc()
 
@@ -165,9 +165,6 @@ gdalUtilities::gdalbuildvrt(file.path('inputs/raw/ABoVE_ForestDisturbance_Agents
                             '/mnt/scratch/trudolph/AGB_trends/terra/binary_dist_mosaic.vrt')
 gdalUtilities::gdalwarp('/mnt/scratch/trudolph/AGB_trends/terra/binary_dist_mosaic.vrt',
                         'inputs/raw/ABoVE_ForestDisturbance_Agents/binary_disturbed_mosaic.tif')
-
-
-
 
 ################################################################################
 ## Import and pre-process ABoVE Landcover time series product (1984 - 2014)
@@ -253,17 +250,28 @@ system.time({
 
 stopCluster(cl)
 
+names(ftab) <- cats(rast('cache/ecoRast.tif'))[[1]]$ECOZONE
+ltab <- data.frame(layer=1:31, year=1984:2014)
+reftab <- data.frame(value = 1:15,
+                     cat = c('Evergreen Forest', 'Deciduous Forest', 'Mixed Forest', 'Woodland',
+                             'Low Shrub', 'Tall Shrub', 'Open Shrubs', 'Herbaceous', 'Tussock Tundra',
+                             'Sparsely Vegetated', 'Fen', 'Bog', 'Shallows/littoral', 'Barren', 'Water'))
+
+ftab <- lapply(ftab, function(x) {
+  return(x %>%
+           mutate(year = ltab$year[match(x$layer, ltab$layer)], .after=layer) %>%
+           mutate(ecozone = reftab$cat[match(x$value, reftab$value)], .after=value))
+})
+
+
 saveRDS(ftab, 'outputs/ABoVE_LandCover_freq_tables.rds')
+
+#################################################################################################
 
 ftab <- readRDS('outputs/ABoVE_LandCover_freq_tables.rds')
 
   ## example looking at mean and sd count by ecozone
   group_by(ftab$`Boreal Shield`, value) %>%  summarize(meanVal = mean(count), sdVal = sd(count))
-
-reftab <- data.frame(value = 1:15,
-                     cat = c('Evergreen Forest', 'Deciduous Forest', 'Mixed Forest', 'Woodland',
-                             'Low Shrub', 'Tall Shrub', 'Open Shrubs', 'Herbaceous', 'Tussock Tundra',
-                             'Sparsely Vegetated', 'Fen', 'Bog', 'Shallows/littoral', 'Barren', 'Water'))
 
 ## Evaluate frequency distributions
 ftab <- do.call(rbind, lapply(1:length(ftab), function(i) {
