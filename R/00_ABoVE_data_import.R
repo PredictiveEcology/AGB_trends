@@ -31,7 +31,7 @@ paths$terra <- file.path(paths$scratch, "terra")
 
 no_cores <- min(parallel::detectCores() / 2, 32L)
 
-terraOptions(tempdir = paths$terra, todisc = TRUE)
+terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 auth_json <- list.files(pattern = "forprod-.*[.]json")
 if (length(auth_json) == 0) {

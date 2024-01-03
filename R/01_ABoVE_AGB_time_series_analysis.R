@@ -25,7 +25,7 @@ paths$terra <- file.path(paths$scratch, "terra")
 
 no_cores <- min(parallel::detectCores() / 2, 32L)
 
-terraOptions(tempdir = paths$terra, todisc = TRUE)
+terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 file.remove(file.path(paths$terra, list.files(paths$terra)))
 

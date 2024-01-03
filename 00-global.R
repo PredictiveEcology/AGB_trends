@@ -135,7 +135,7 @@ opts <- options(
   reproducible.destinationPath = prjPaths$inputPath
 )
 
-terra::terraOptions(tempdir = prjPaths$terraPath, todisc = TRUE)
+terra::terraOptions(tempdir = prjPaths$terraPath, todisk = TRUE)
 
 quickPlot::dev.useRSGD(useRSGD = quickPlot::isRstudioServer())
 

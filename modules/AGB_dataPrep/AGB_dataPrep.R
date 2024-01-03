@@ -355,7 +355,7 @@ estimatePixelAges <- function(sim) {
                 envir = environment())
 
   parLapply(cl, 1:length(tileNames), function(i) {
-    terraOptions(tempdir = terraScratchPath, todisc = TRUE)
+    terraOptions(tempdir = terraScratchPath, todisk = TRUE)
 
     tdir <- file.path(cleanTilePath, tileNames[i])
     agbYears <- 1984L:2014L

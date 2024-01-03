@@ -26,7 +26,7 @@ paths$terra <- file.path(paths$scratch, "terra")
 
 no_cores <- min(parallel::detectCores() / 2, 8L)
 
-terraOptions(tempdir = paths$terra, todisc = TRUE)
+terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 # 1) data import ------------------------------------------------------------------------------
 ## 1.1) Import ABoVE product tiles ------------------------------------------------------------
