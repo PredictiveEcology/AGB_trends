@@ -6,8 +6,8 @@
 ## Description : R script serving to estimate cell-wise linear regression coefficients for ABoVE AGB 31-year time series (1984-2014)
 
 # package installation and loading ------------------------------------------------------------
-Require::Require(c("dplyr", "ggplot2", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends@development"), upgrade = FALSE)
+Require::Require(c("dplyr", "ggplot2", "parallelly", "reproducible", "sf", "stringr", "terra",
+                   "PredictiveEcology/AGBtrends"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
