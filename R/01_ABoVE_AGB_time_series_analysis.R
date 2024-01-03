@@ -284,8 +284,10 @@ system.time({
       slopeRaster = rast(irast$slope[i]),
       weightRaster = rast(irast$w[i]),
       zoneRaster = rast(irast[[svar]][i]),
-      ## maskRaster arg can be either e.g. was it disturbed? or e.g. is it forested? or both....
-      maskRaster = maskRaster, # e.g. use rast('inputs/ABoVE_ForestDisturbance_Agents/binary_disturbed_mosaic.tif') for pixels disturbed over course of time series (according to ABoVE)
+      ## maskRaster arg can be either e.g. was it disturbed? or e.g. is it forested? or both:
+      ## e.g. use `rast(file.path(paths$outputs, "mosaics", "binary_disturbed_mosaic.tif"))`
+      ##      for pixels disturbed over course of time series (according to ABoVE)
+      maskRaster = maskRaster,
       file.id = file.id
     )
 
@@ -302,7 +304,7 @@ parallel::stopCluster(cl)
 ## 1 a) range
 
 ## i) make mosaic for year 2000
-tilePath <- list.files("inputs/clean/tiled", full.names = TRUE)
+tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE)
 rPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", full.names = TRUE)))
 
 agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
@@ -799,3 +801,6 @@ plotZoneStatsIntervals <- function(files2plot = file.path(paths$outputs, list.fi
 #                    wmean2 = format(weighted.mean(slope, w, na.rm = TRUE), scientific = TRUE),
 #                    wSD1 = format(weighted.sd(slope, w, na.rm = TRUE), scientific = TRUE),
 #                    wSD2 = format(sdwt(slope, w), scientific = TRUE))
+
+# cleanup -------------------------------------------------------------------------------------
+unlink(paths$terra, recursive = TRUE)

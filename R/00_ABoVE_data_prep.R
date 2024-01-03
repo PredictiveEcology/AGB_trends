@@ -8,7 +8,7 @@
 ##   using a combination of ABoVE Disturbance Agents and the CaNFIR stand age mosaic (kNN 2020)
 
 # package installation and loading ------------------------------------------------------------
-Require::Require(c("dplyr", "parallelly", "sf", "stringr", "terra"), upgrade = FALSE)
+Require::Require(c("dplyr", "parallelly", "reproducible", "sf", "stringr", "terra"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
@@ -30,19 +30,19 @@ terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 # 1) data import ------------------------------------------------------------------------------
 ## 1.1) Import ABoVE product tiles ------------------------------------------------------------
-dist_tiles <- st_read(file.path(paths$inputs, "ABoVE_DistAgents_study_area.gpkg"), "tileset")
-agb_tiles <- st_read(file.path(paths$inputs, "ABoVE_AGB_study_area.gpkg"), "tileset")
+dist_tiles <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "tileset")
+agb_tiles <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "tileset")
 
 ## 1.2) Index 30m ABG input rasters -----------------------------------------------------------
 agbdsn <- file.path(paths$inputs, "ABoVE_AGB_30m", "data")
 agbfiles <- list.files(agbdsn, pattern = "AGB_B")
 
 ## 1.3) Index ABoVE disturbance history raster masks ------------------------------------------
-distdsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents/data")
+distdsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "data")
 distfiles <- list.files(distdsn, pattern = ".tif")
 
 ## 1.4) Import WBI study area -----------------------------------------------------------------
-wbi <- st_read(file.path(paths$outputs, "WBI_studyArea.gpkg")) ## TODO: check path
+wbi <- st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"))
 
 ## 1.5) Reduce input file selection to tiles contained within WBI study area & align filename indices
 agbfiles <- agbfiles[apply(relate(x = vect(agb_tiles), y = vect(wbi), relation = "intersects"), 1, any)]
@@ -52,7 +52,6 @@ distfiles <- distfiles[match(tilenames, str_sub(distfiles, end = 7L))]
 # 2) Estimate cell-specific stand age ---------------------------------------------------------
 ## using a combination of ABoVE Disturbance Agents and the CaNFIR stand age mosaic (kNN 2020)
 
-no_cores <- min(parallel::detectCores() / 2, 8L)
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("terra", "sf", "stringr"),
   rscript_libs = .libPaths(),
@@ -108,7 +107,8 @@ ptime <- system.time({
       fun = min, na.rm = TRUE
     ) # 106 sec
 
-    ## derive pixel- and year-specific age since disturbance (ABoVE disturbed pixels exclusively; *only possible for years 1987-2012*),
+    ## derive pixel- and year-specific age since disturbance
+    ## (ABoVE disturbed pixels exclusively; *only possible for years 1987-2012*),
     ageSinceDist <- rast(lapply(1984:2014, function(k) k - chid))
 
     ## create mask serving to identify relevant cells
@@ -122,7 +122,8 @@ ptime <- system.time({
     if (FALSE) {
       k <- sample(1:31, size = 1)
       x <- mask(rage[[k]], ageMask[[k]])
-      if (global(x, fun = "sum", na.rm = TRUE)$sum != global(ageSinceDist[[k]], fun = "sum", na.rm = TRUE)$sum) stop("PROBLEM ...!")
+      if (global(x, fun = "sum", na.rm = TRUE)$sum !=
+          global(ageSinceDist[[k]], fun = "sum", na.rm = TRUE)$sum) stop("PROBLEM ...!")
     }
 
     ## render NA all cell values pre-dating disturbances (where stand age cannot be known)
@@ -142,7 +143,7 @@ ptime <- system.time({
   })
 
   stopCluster(cl)
-  file.remove(file.path(terraDir, list.files(terraDir)))
+  file.remove(file.path(paths$terra, list.files(paths$terra)))
 }) # 1.6 hours
 
 
@@ -154,7 +155,7 @@ distfiles <- list.files(distdsn, pattern = ".tif")
 
 no_cores <- 25
 cl <- parallelly::makeClusterPSOCK(no_cores,
-  default_packages = c("terra", "stringr"),
+  default_packages = c("stringr", "terra"),
   rscript_libs = .libPaths(),
   autoStop = TRUE
 )
@@ -162,7 +163,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
 parallel::clusterExport(cl, varlist = "distdsn", envir = environment())
 parallel::clusterEvalQ(cl, {
   terraOptions(
-    tempdir = terraDir,
+    tempdir = paths$terra,
     memmax = 25,
     memfrac = 0.8,
     progress = 1,
@@ -172,7 +173,7 @@ parallel::clusterEvalQ(cl, {
 
 parallel::parLapply(cl, distfiles, function(distfile) {
   writeRaster(any(rast(file.path(distdsn, distfile))),
-    filename = file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "binary_disturbed",
+    filename = file.path(paths$outputs, "binary_disturbed",
                          paste0(str_sub(distfile, end = 7L), "_disturbed.tif")),
     overwrite = TRUE
   )
@@ -184,15 +185,15 @@ parallel::stopCluster(cl)
 sf::gdal_utils(
   util = "buildvrt",
   source = file.path(
-    paths$inputs, "ABoVE_ForestDisturbance_Agents", "binary_disturbed",
-    dir(file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "binary_disturbed"))
+    paths$outputs, "binary_disturbed",
+    dir(file.path(paths$outputs, "binary_disturbed"))
   ),
   destination = file.path(paths$terra, "binary_dist_mosaic.vrt")
 )
 sf::gdal_utils(
   util = "warp",
   source = file.path(paths$terra, "binary_dist_mosaic.vrt"),
-  destination = file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "binary_disturbed_mosaic.tif")
+  destination = file.path(paths$outputs, "mosaics", "binary_disturbed_mosaic.tif")
 )
 
 ## Import and pre-process ABoVE Landcover time series product (1984 - 2014) -------------------
@@ -259,24 +260,23 @@ sf::gdal_utils(
   util = "buildvrt",
   source = file.path(paths$inputs, "ABoVE_Landcover", paste0("ABoVE_LandCover_Simplified_",
                                                              dir(file.path(paths$outputs, "tiles")), ".tif")),
-  destination = file.path(paths$cache, "AGB_landCover_mosaic.vrt") ## TODO: check path
+  destination = file.path(paths$terra, "AGB_landCover_mosaic.vrt")
 )
 
 sf::gdal_utils(
   util = "warp",
-  source = file.path(paths$cache, "AGB_landCover_mosaic.vrt"), ## TODO: check path
+  source = file.path(paths$terra, "AGB_landCover_mosaic.vrt"),
   destination = file.path(paths$outputs, "mosaics", "AGB_landCover_mosaic.tif")
 )
 
 ## Rasterize ecozones to fit
 ecoRast <- terra::rasterize(
-  x = st_read("outputs/WBI_studyArea.gpkg", quiet = TRUE),
+  x = st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"), quiet = TRUE),
   y = rast(file.path(paths$outputs, "mosaics", "AGB_landCover_mosaic.tif")),
   field = "ECOZONE",
-  filename = file.path(paths$cache, "ecoRast.tif") ## TODO: check path
+  filename = file.path(paths$terra, "ecoRast.tif")
 )
 
-Require::Require("parallel")
 no_cores <- 6
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("terra"),
@@ -286,7 +286,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
 
 parallel::clusterEvalQ(cl, {
   terraOptions(
-    tempdir = terraDir,
+    tempdir = paths$terra,
     memmax = 25,
     memfrac = 0.5,
     progress = 1,
@@ -295,10 +295,10 @@ parallel::clusterEvalQ(cl, {
 })
 
 system.time({
-  ftab <- parLapply(cl, cats(rast(file.path(paths$cache, "ecoRast.tif")))[[1]]$value, function(ezone) {
+  ftab <- parLapply(cl, cats(rast(file.path(paths$terra, "ecoRast.tif")))[[1]]$value, function(ezone) {
     return(freq(mask(
       rast(file.path(paths$outputs, "AGB_landCover_mosaic.tif")),
-      rast(file.path(paths$cache, "ecoRast.tif")), ## TODO: check path
+      rast(file.path(paths$terra, "ecoRast.tif")),
       maskvalues = ezone,
       inverse = TRUE
     )))
@@ -307,7 +307,7 @@ system.time({
 
 stopCluster(cl)
 
-names(ftab) <- cats(rast(file.path(paths$cache, "ecoRast.tif")))[[1]]$ECOZONE ## TODO: check path
+names(ftab) <- cats(rast(file.path(paths$terra, "ecoRast.tif")))[[1]]$ECOZONE
 ltab <- data.frame(layer = 1:31, year = 1984:2014)
 reftab <- data.frame(
   value = 1:15,
@@ -332,7 +332,7 @@ ftab <- readRDS(file.path(paths$outputs, "ABoVE_LandCover_freq_tables.rds"))
 
 ftab <- do.call(rbind, lapply(1:length(ftab), function(i) {
   return(bind_cols(
-    ecozone = cats(rast(file.path(paths$cache, "ecoRast.tif")))[[1]]$ECOZONE[i],
+    ecozone = cats(rast(file.path(paths$terra, "ecoRast.tif")))[[1]]$ECOZONE[i],
     group_by(ftab[[i]], value) |>
       summarize(count = mean(count, na.rm = TRUE)) |>
       left_join(reftab, by = "value") |>
@@ -345,3 +345,6 @@ mutate(ftab, cat2 = ifelse(value %in% c(1:4), "Forested", "Non-Forested")) |>
   summarize(catCount = sum(count)) |>
   group_by(ecozone) |>
   summarize(pcntForestedPixels = catCount[1] / sum(catCount))
+
+# cleanup -------------------------------------------------------------------------------------
+unlink(paths$terra, recursive = TRUE)

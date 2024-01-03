@@ -238,3 +238,6 @@ plot_studyArea_tiles <- function() {
 gg_tiles <- cowplot::plot_grid(plot_studyArea_tiles)
 
 ggsave(file.path(paths$outputs, "figures", paste0("ABoVE_tiles_", studyAreaName, ".png")), gg_tiles, width = 12, height = 8)
+
+# cleanup -------------------------------------------------------------------------------------
+unlink(paths$terra, recursive = TRUE)
