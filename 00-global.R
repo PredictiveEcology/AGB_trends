@@ -64,6 +64,7 @@ library(Require)
 setLinuxBinaryRepo()
 
 Require(c(
+  "PredictiveEcology/AGBtrends@development",
   "PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
   "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
   "PredictiveEcology/SpaDES.tools@development"
@@ -78,8 +79,9 @@ Install(unique(c(modulePkgs, otherPkgs)), standAlone = TRUE, upgrade = FALSE)
 
 ## NOTE: always load packages LAST, after installation above;
 ##       ensure plyr loaded before dplyr or there will be problems
-Require(c("data.table", "plyr", "pryr", "SpaDES.core",
-          "dplyr", "googledrive", "httr", "sessioninfo", "sf", "terra"),
+Require(c( "plyr", "dplyr",
+           "data.table", "googledrive", "httr", "pryr", "sessioninfo", "sf", "terra",
+           "SpaDES.core"),
         standAlone = TRUE, upgrade = FALSE)
 
 # configure project ---------------------------------------------------------------------------
@@ -106,11 +108,11 @@ prjPaths <- list(
     if (.nodename == "larix.for-cast.ca") {
       file.path(tempdir(), "scratch", basename(prjDir))
     } else {
-      file.path("/mnt/scratch/achubaty", basename(prjDir))
+      file.path("/mnt/scratch", .user, basename(prjDir))
     }
   } else if (.user == "trudolph") {
     if (grepl("for-cast[.]ca", .nodename)) {
-      file.path("/mnt/scratch/trudolph", basename(prjDir))
+      file.path("/mnt/scratch", .user, basename(prjDir))
     } else {
       "scratch"
     }
@@ -140,7 +142,7 @@ quickPlot::dev.useRSGD(useRSGD = quickPlot::isRstudioServer())
 # authenticate google user ---------------------------------------------------------------------
 
 ## allow authentication via email/oauth (interactive) or by token (non-interactive)
-SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
+SpaDES.config::authGoogle(tryToken = "forprod", tryEmail = config$googleUser)
 
 # simulation ----------------------------------------------------------------------------------
 
@@ -148,44 +150,7 @@ SpaDES.config::authGoogle(tryToken = "AGB_trends", tryEmail = config$googleUser)
 
 sf_use_s2(FALSE)
 
-## "Canada_Albers_Equal_Area_Conic" - no recognized EPSG code, using wkt:
-targetCRS <- paste0("PROJCRS[\"Canada_Albers_Equal_Area_Conic\",\n",
-                        "    BASEGEOGCRS[\"NAD83\",\n",
-                        "        DATUM[\"North American Datum 1983\",\n",
-                        "            ELLIPSOID[\"GRS 1980\",6378137,298.257222101004,\n",
-                        "                LENGTHUNIT[\"metre\",1]]],\n",
-                        "        PRIMEM[\"Greenwich\",0,\n",
-                        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n",
-                        "        ID[\"EPSG\",4269]],\n    CONVERSION[\"unnamed\",\n",
-                        "        METHOD[\"Albers Equal Area\",\n",
-                        "            ID[\"EPSG\",9822]],\n",
-                        "        PARAMETER[\"Latitude of false origin\",40,\n",
-                        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                        "            ID[\"EPSG\",8821]],\n",
-                        "        PARAMETER[\"Longitude of false origin\",-96,\n",
-                        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                        "            ID[\"EPSG\",8822]],\n",
-                        "        PARAMETER[\"Latitude of 1st standard parallel\",50,\n",
-                        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                        "            ID[\"EPSG\",8823]],\n",
-                        "        PARAMETER[\"Latitude of 2nd standard parallel\",70,\n",
-                        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                        "            ID[\"EPSG\",8824]],\n",
-                        "        PARAMETER[\"Easting at false origin\",0,\n",
-                        "            LENGTHUNIT[\"metre\",1],\n",
-                        "            ID[\"EPSG\",8826]],\n",
-                        "        PARAMETER[\"Northing at false origin\",0,\n",
-                        "            LENGTHUNIT[\"metre\",1],\n",
-                        "            ID[\"EPSG\",8827]]],\n",
-                        "    CS[Cartesian,2],\n",
-                        "        AXIS[\"easting\",east,\n",
-                        "            ORDER[1],\n",
-                        "            LENGTHUNIT[\"metre\",1,\n",
-                        "                ID[\"EPSG\",9001]]],\n",
-                        "        AXIS[\"northing\",north,\n",
-                        "            ORDER[2],\n",
-                        "            LENGTHUNIT[\"metre\",1,\n",
-                        "                ID[\"EPSG\",9001]]]]")
+targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic
 
 myStudyArea <- switch(
   .mode,
@@ -216,8 +181,8 @@ myStudyArea <- switch(
   },
   development = {
     ## random study area for development
-    ctr1 <- terra::vect(cbind(x = -113.530, y = 61.530), crs = "EPSG:4326")
-    studyAreaRnd1 <- SpaDES.tools::randomStudyArea(ctr1, size = 3e10, seed = 42) |>
+    studyAreaRnd1 <- terra::vect(cbind(x = -113.530, y = 61.530), crs = "EPSG:4326") |>
+      SpaDES.tools::randomStudyArea(size = 3e10, seed = 42) |>
       st_as_sf() |>
       st_transform(targetCRS)
 
@@ -225,9 +190,8 @@ myStudyArea <- switch(
   },
   testing = {
     ## random study area for testing (larger + diff location than devel)
-    ctr2 <- sp::SpatialPoints(matrix(c(-126.95, 61.30), ncol = 2))
-    crs(ctr2) <- "EPSG:4326"
-    studyAreaRnd2 <- SpaDES.tools::randomStudyArea(ctr2, size = 6e10, seed = pi) |>
+    studyAreaRnd2 <- terra::vect(cbind(x = -126.95, y = 61.30), crs = "EPSG:4326") |>
+      SpaDES.tools::randomStudyArea(size = 6e10, seed = pi) |>
       st_as_sf() |>
       st_transform(targetCRS)
 
@@ -255,6 +219,9 @@ mySim <- simInitAndSpades(
   objects = list(
     studyArea = myStudyArea
   ),
-  modules = list("AGB_dataPrep", "AGB_analyses"),
+  modules = list(
+    "AGB_dataPrep",
+    "AGB_analyses"
+  ),
   paths = prjPaths
 )

@@ -5,8 +5,9 @@ defineModule(sim, list(
   ),
   keywords = "", ## TODO
   authors = c(
-    person("Tyler D", "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut", "cre")),
-    person("Alex M", "Chubaty", email = "achubaty@for-cast.ca", role = c("ctb"))
+    person("Tyler D", "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut")),
+    person("Céline", "Boisvenue", email = "celine.boisvenue@nrcan-rncan.gc.ca", role = c("aut")),
+    person("Alex M", "Chubaty", email = "achubaty@for-cast.ca", role = c("aut", "cre"))
   ),
   childModules = character(0),
   version = list(AGB_analyses = "0.0.1"),
@@ -14,8 +15,9 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("NEWS.md", "README.md", "AGB_analyses.Rmd"),
-  reqdPkgs = list("dplyr", "geodata", "gdalUtilities", "ggplot2", "ggspatial",
+  reqdPkgs = list("dplyr", "gdalUtilities", "ggplot2", "ggspatial",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
+                  "PredictiveEcology/AGBtrends",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -24,7 +26,7 @@ defineModule(sim, list(
                           "one of 'ecozone', 'ecoprovince', 'ecoregion', or 'ecodistrict'.")),
     defineParameter("dataYears", "integer", 1984L:2014L, NA, NA,
                     "ABoVE AGB time series years"),
-    defineParameter("nCores", "integer", max(32L, parallelly::availableCores(constraints = "connections")), NA, NA,
+    defineParameter("nCores", "integer", min(32L, parallelly::availableCores(constraints = "connections")), NA, NA,
                     "Number of cpu threads be used where possible."),
     defineParameter("summaryIntervals", "list",
                     list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31), NA, NA,
@@ -83,16 +85,62 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "AGB_analyses", "plotting")
     },
     geoWghtReg = {
-      sim <- GWR(sim)
+      ## 1.1.1) Derive slope of numerical vector across a time series
+      f1 <- AGBtrends::gwr(mod$tile_folders, type = "slope", cores = P(sim)$nCores)
+      # sim <- registerOutputs(sim, f1) ## TODO: enable once implement in SpaDES.core
+
+      ## 1.1.2) stock number of non-NA values for subsequent weighted standard deviation
+      f2 <- AGBtrends::gwr(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores)
+      # sim <- registerOutputs(sim, f2) ## TODO: enable once implement in SpaDES.core
     },
     buildVRTs = {
-      sim <- VRT(sim)
+      outputDir <- outputPath(sim)
+      scratchDir <- scratchPath(sim)
+      tileDirs <- mod$tile_folders
+######### TODO: incorporate into buildMosaics() and use here
+      vrts <- file.path(scratchDir, c("AGB_slope_mosaic.vrt", "AGB_sample_size_mosaic.vrt"))
+      tifs <- file.path(outputsDir, c("AGB_slope_mosaic.tif", "AGB_sample_size_mosaic.tif"))
+
+      agb_slopes_Bh <- vapply(tileDirs, function(dsn) {
+        fs::dir_ls(dsn, regexp = "agb_slopes_Bh")
+      }, character(1)) |>
+        unname()
+
+      agb_sample_size_Bh <- vapply(tileDirs, function(dsn) {
+        fs::dir_ls(dsn, regexp = "agb_sample_size_Bh")
+      }, character(1)) |>
+        unname()
+
+      ## 1.2.1) Build virtual rasters
+      sf::gdal_utils(util = "buildvrt", source = agb_slopes_Bh, destination = vrts[1])
+      sf::gdal_utils(util = "buildvrt", source = agb_sample_size_Bh, destination = vrts[2])
+
+      ## 1.2.2) Write to raster mosaics
+      sf::gdal_utils(utils = "warp", source = vrts[1], destination = tifs[1])
+      sf::gdal_utils(utils = "warp", source = vrts[2], destination = tifs[2])
+
+      # sim <- registerOutputs(sim, tifs) ## TODO: enable once implement in SpaDES.core
     },
     slopesPerTime = {
-      sim <- calcSlopes(sim)
+      ## 2.1.1) calculate local slope coefficient for specified time interval
+      f1 <- gwrt(mod$tile_folders, type = "slope", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      # sim <- registerOutputs(sim, f1) ## TODO: enable once implement in SpaDES.core
+
+      ## 2.1.2) stock number of non-NA values for subsequent weighted standard deviation
+      f2 <- gwrt(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      # sim <- registerOutputs(sim, f2) ## TODO: enable once implement in SpaDES.core
     },
     createMosaicRasts = {
-      sim <- buildMosaics(sim)
+      intervals <- P(sim)$summaryIntervals
+      ncores <- length(P(sim)$summaryIntervals)
+      paths <- list(
+        outputs = outputPath(sim),
+        scratch = scratchPath(sim),
+        tiles = mod$tile_folders
+      )
+
+      f <- buildMosaics(intervals = intervals, paths = paths, cores = cores)
+      # sim <- registerOutputs(sim, f) ## TODO: enable once implement in SpaDES.core
     },
     slopesByAgeTime = {
       sim <- groupSlopes(sim)
@@ -124,183 +172,9 @@ Init <- function(sim) {
   mod$cleanTilePath <- checkPath(file.path(mod$dPath, "clean", "tiled"), create = TRUE)
   mod$tile_folders <- sort(list.files(mod$cleanTilePath, pattern = "Bh", full.names = TRUE))
 
-  ## "Canada_Albers_Equal_Area_Conic" - no recognized EPSG code, using wkt:
-  mod$targetCRS <- paste0("PROJCRS[\"Canada_Albers_Equal_Area_Conic\",\n",
-                          "    BASEGEOGCRS[\"NAD83\",\n",
-                          "        DATUM[\"North American Datum 1983\",\n",
-                          "            ELLIPSOID[\"GRS 1980\",6378137,298.257222101004,\n",
-                          "                LENGTHUNIT[\"metre\",1]]],\n",
-                          "        PRIMEM[\"Greenwich\",0,\n",
-                          "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n",
-                          "        ID[\"EPSG\",4269]],\n    CONVERSION[\"unnamed\",\n",
-                          "        METHOD[\"Albers Equal Area\",\n",
-                          "            ID[\"EPSG\",9822]],\n",
-                          "        PARAMETER[\"Latitude of false origin\",40,\n",
-                          "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                          "            ID[\"EPSG\",8821]],\n",
-                          "        PARAMETER[\"Longitude of false origin\",-96,\n",
-                          "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                          "            ID[\"EPSG\",8822]],\n",
-                          "        PARAMETER[\"Latitude of 1st standard parallel\",50,\n",
-                          "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                          "            ID[\"EPSG\",8823]],\n",
-                          "        PARAMETER[\"Latitude of 2nd standard parallel\",70,\n",
-                          "            ANGLEUNIT[\"degree\",0.0174532925199433],\n",
-                          "            ID[\"EPSG\",8824]],\n",
-                          "        PARAMETER[\"Easting at false origin\",0,\n",
-                          "            LENGTHUNIT[\"metre\",1],\n",
-                          "            ID[\"EPSG\",8826]],\n",
-                          "        PARAMETER[\"Northing at false origin\",0,\n",
-                          "            LENGTHUNIT[\"metre\",1],\n",
-                          "            ID[\"EPSG\",8827]]],\n",
-                          "    CS[Cartesian,2],\n",
-                          "        AXIS[\"easting\",east,\n",
-                          "            ORDER[1],\n",
-                          "            LENGTHUNIT[\"metre\",1,\n",
-                          "                ID[\"EPSG\",9001]]],\n",
-                          "        AXIS[\"northing\",north,\n",
-                          "            ORDER[2],\n",
-                          "            LENGTHUNIT[\"metre\",1,\n",
-                          "                ID[\"EPSG\",9001]]]]")
+  mod$targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic
 
   # ! ----- STOP EDITING ----- ! #
-
-  return(invisible(sim))
-}
-
-GWR <- function(sim) {
-  odt <- terraOptions(print = FALSE)[["datatype"]]
-  on.exit(terraOptions(datatype = odt), add = TRUE)
-
-  ncores <- P(sim)$nCores
-
-  tileDirs <- mod$tile_folders
-  sapply(seq_along(tileDirs), function(i) {
-    ## 1.1.1) Derive slope of numerical vector across a time series
-    terraOptions(datatype = "FLT4S")
-    app(rast(file.path(tileDirs[i], list.files(tileDirs[i], pattern = "ragb"))),
-        fun = function(x, ff) ff(x),
-        cores = ncores,
-        ff = ts_slope, ## defined in R/helpers.R
-        filename = file.path(tileDirs[i], paste0("agb_slopes_", str_sub(tileDirs[i], start = -7L), ".tif")),
-        overwrite = TRUE)
-
-    ## 1.1.2) stock number of non-NA values for subsequent weighted standard deviation
-    terraOptions(datatype = "INT1U")
-    app(rast(file.path(tileDirs[i], list.files(tileDirs[i], pattern = "ragb"))),
-        fun = function(x, ff) ff(x),
-        cores = ncores,
-        ff = ts_nsamp, ## defined in R/helpers.R
-        filename = file.path(tileDirs[i], paste0("agb_sample_size_", str_sub(tileDirs[i], start = -7L), ".tif")),
-        overwrite = TRUE)
-
-    return(invisible(NULL))
-  })
-
-  return(invisible(sim))
-}
-
-VRT <- function(sim) {
-  tileDirs <- mod$tile_folders
-  vrts <- file.path(cachePath(sim), c("AGB_slope_mosaic.vrt", "AGB_sample_size_mosaic.vrt")) ## TODO: why cache, not tmp dir??
-  tifs <- file.path(outputPath(sim), c("AGB_slope_mosaic.tif", "AGB_sample_size_mosaic.tif"))
-browser()
-  ## 1.2.1) Build virtual rasters
-  gdalbuildvrt(gdalfile = unname(sapply(tileDirs, function(dsn) file.path(dsn, list.files(dsn, pattern = "agb_slopes_Bh")))),
-               output.vrt = vrts[1])
-  gdalbuildvrt(gdalfile = unname(sapply(tileDirs, function(dsn) file.path(dsn, list.files(dsn, pattern = "agb_sample_size_Bh")))),
-               output.vrt = vrts[2])
-
-  ## 1.2.2) Write to raster mosaics
-  gdalwarp(srcfile = vrts[1], dstfile = tifs[1], overwrite = TRUE)
-  gdalwarp(srcfile = vrts[2], dstfile = tifs[2], overwrite = TRUE)
-
-  return(invisible(sim))
-}
-
-calcSlopes <- function(sim) {
-  ncores <- P(sim)$nCores
-  tileDirs <- mod$tile_folders
-  timeint <- P(sim)$summaryIntervals
-
-  odt <- terraOptions(print = FALSE)[["datatype"]]
-  on.exit(terraOptions(datatype = odt), add = TRUE)
-
-  for (i in seq_along(tileDirs)) {
-    message(paste0(i, "/", length(tileDirs), "\n")) ## simple progress updates
-
-    tile_folder <- tileDirs[i]
-
-    sapply(1:length(timeint), function(timestep) {
-      ## 2.1.1) calculate local slope coefficient for specified time interval
-      terraOptions(datatype = "FLT4S")
-      app(rast(file.path(tileDirs[i], list.files(tileDirs[i], pattern = "ragb")))[[timeint[[timestep]]]],
-          function(x, ff) ff(x),
-          cores = ncores,
-          ff = ts_slope, ## defined in R/helpers.R
-          filename = file.path(tileDirs[i], paste0("agb_slopes_", names(timeint)[timestep], "_", str_sub(tileDirs[i], start = -7L), ".tif")),
-          overwrite = TRUE)
-
-      ## 2.1.2) stock number of non-NA values for subsequent weighted standard deviation
-      terraOptions(datatype = "INT1U")
-      app(rast(file.path(tileDirs[i], list.files(tileDirs[i], pattern = "ragb")))[[timeint[[timestep]]]],
-          fun = function(x, ff) ff(x),
-          cores = ncores,
-          ff = ts_nsamp, ## defined in R/helpers.R
-          filename = file.path(tileDirs[i], paste0("agb_sample_size_", names(timeint)[timestep], "_", str_sub(tileDirs[i], start = -7L), ".tif")),
-          overwrite = TRUE)
-
-      return(invisible(NULL))
-    })
-  }
-
-  return(invisible(sim))
-}
-
-buildMosaics <- function(sim) {
-  ncores <- length(P(sim)$summaryIntervals)
-  outputDir <- outputPath(sim)
-  scratchDir <- scratchPath(sim)
-  tileDirs <- mod$tile_folders
-browser()
-  cl <- parallelly::makeClusterPSOCK(ncores,
-                                     default_packages = c("terra", "gdalUtilities", "stringr"),
-                                     rscript_libs = .libPaths(),
-                                     autoStop = TRUE)
-  on.exit(stopCluster(cl), add = TRUE)
-
-  clusterExport(cl, varlist = c("outputDir", "scratchDir", "tileDirs"))
-
-  parallel::clusterEvalQ(cl, {
-    terraOptions(tempdir = scratchDir,
-                 memmax = 25,
-                 memfrac = 0.6,
-                 progress = 1,
-                 verbose = TRUE) ## TODO: P(sim)$verbose
-  })
-
-  parLapply(cl, names(timeint), function(tp) {
-    td <- terraOptions(print = FALSE)[["tempdir"]]
-    od <- outputDir
-
-    ## 2.2.1) Build virtual rasters
-    flist <- unname(sapply(tileDirs, function(dsn) file.path(dsn, list.files(dsn, pattern = tp))))
-
-    gdalbuildvrt(gdalfile = flist[str_detect(flist, "slope")],
-                 output.vrt = paste0(td, "AGB_slope_mosaic_", tp, ".vrt"))
-
-    gdalbuildvrt(gdalfile = flist[str_detect(flist, 'sample_size')],
-                 output.vrt = paste0(td, "AGB_sample_size_mosaic_", tp, ".vrt"))
-
-    ## 2.2.2) Write to raster mosaics
-    gdalwarp(srcfile = file.path(td, paste0("AGB_slope_mosaic_", tp, ".vrt")),
-             dstfile = file.path(od, paste0("AGB_slope_mosaic_", tp, ".tif")))
-
-    gdalwarp(srcfile = file.path(td, paste0("AGB_sample_size_mosaic_", tp, ".vrt")),
-             dstfile = file.path(od, paste0("AGB_sample_size_mosaic_", tp, ".tif")))
-
-    return(invisible(NULL))
-  })
 
   return(invisible(sim))
 }
@@ -349,7 +223,7 @@ browser()
     ageRast <- classify(rast(file.path(cleanTilePath, paste0("AGB_age_mosaic_t", i, ".tif"))),
                         rcl = RCL, right = FALSE, others = NA_integer_)
     names(ageRast) <- "ageClass"
-    levels(ageRast) <- data.frame(value = RCL$becomes, ageClass = paste0(RCL$from, '-', RCL$to))
+    levels(ageRast) <- data.frame(value = RCL$becomes, ageClass = paste0(RCL$from, "-", RCL$to))
     writeRaster(ageRast, file.path(cleanTilePath, paste0("AGB_age_mosaic_classes_t", i, ".tif")), overwrite = TRUE)
 
     return(invisible(NULL))
@@ -381,7 +255,7 @@ browser()
       zoi = analysisZones,
       field = toupper(analysisZonesType),
       ageClass = rast(file.path(cleanTilePath, paste0("AGB_age_mosaic_classes_t", i, ".tif"))),
-      file.id = paste0("WBI_ecozone_t", i),
+      fileID = paste0("WBI_ecozone_t", i),
       ow = TRUE
     )
 
@@ -428,22 +302,22 @@ browser()
     terraOptions(tempdir = terraDir, memfrac = 0.5 / ncores)
   })
 
-  parallel::parLapply(cl, 1:7, function(i, svar = 'ecozone', maskRaster = NULL) {
-    ## TODO: use maskRaster file name to qualify file.id writeRaster tag
+  parallel::parLapply(cl, 1:7, function(i, svar = "ecozone", maskRaster = NULL) {
+    ## TODO: use maskRaster file name to qualify fileID writeRaster tag
     if (i == 7) {
-      file.id <- paste0("WBI_", svar)
-      # file.id <- paste0("WBI_distMask_, svar)
+      fileID <- paste0("WBI_", svar)
+      # fileID <- paste0("WBI_distMask_, svar)
     } else {
-      file.id <- paste0("WBI_", svar, "_t", i)
-      # file.id <- paste0("WBI_distMask_, svar, "_t, i)
+      fileID <- paste0("WBI_", svar, "_t", i)
+      # fileID <- paste0("WBI_distMask_, svar, "_t, i)
     }
 
     zoneStats(slopeRaster = rast(irast$slope[i]),
               weightRaster = rast(irast$w[i]),
               zoneRaster = rast(irast[[svar]][i]),
               ## maskRaster arg can be either e.g. was it disturbed, is it forested or both?
-              maskRaster = maskRaster, # e.g. use rast('inputs/raw/ABoVE_ForestDisturbance_Agents/binary_disturbed_mosaic.tif') for pixels disturbed over course of time series (according to ABoVE)
-              file.id = file.id)
+              maskRaster = maskRaster, # e.g. use rast("inputs/raw/ABoVE_ForestDisturbance_Agents/binary_disturbed_mosaic.tif") for pixels disturbed over course of time series (according to ABoVE)
+              fileID = fileID)
 
     return(invisible(NULL))
   })
@@ -453,28 +327,36 @@ browser()
 
 plotAll <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
+
+  ## 2) visual examination of results ------------------------------------------------------------
   ## TODO
 
-  # ## Visual examination of results !! finesse and write to png !!
-  #
   # par(mfrow=c(3,2))
   # for(tp in names(timeint)) {
-  #   plot(rast(paste0('outputs/AGB_slope_mosaic_', tp, '.tif')), main=tp)
+  #   plot(rast(paste0("outputs/AGB_slope_mosaic_", tp, ".tif")), main=tp)
   # }
   #
-  # sapply(names(timeint), function(tp) digest::digest(paste0('outputs/AGB_slope_mosaic_', tp, '.tif'), algo='xxhash64'))
-  # sapply(names(timeint), function(tp) file.size(paste0('outputs/AGB_slope_mosaic_', tp, '.tif')))
+  # sapply(names(timeint), function(tp) digest::digest(paste0("outputs/AGB_slope_mosaic_", tp, ".tif"), algo="xxhash64"))
+  # sapply(names(timeint), function(tp) file.size(paste0("outputs/AGB_slope_mosaic_", tp, ".tif")))
   #
   # ## write to PNG !!
   # par(mfrow=c(2,3))
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t1.tif')), main='t1')
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t2.tif')), main='t2')
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t3.tif')), main='t3')
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t4.tif')), main='t4')
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t5.tif')), main='t5')
-  # hist(rast(paste0('outputs/AGB_slope_mosaic_t6.tif')), main='t6')
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t1.tif")), main="t1")
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t2.tif")), main="t2")
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t3.tif")), main="t3")
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t4.tif")), main="t4")
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t5.tif")), main="t5")
+  # hist(rast(paste0("outputs/AGB_slope_mosaic_t6.tif")), main="t6")
 
   #Plots(sampleData, fn = ggplotFn)
+
+
+  ## 6) diagnostic plots -------------------------------------------------------------------------
+
+  ## 6.1) range, mode and mean of AGB values by ageClass, year 2000
+
+
+  ## 7) plot differences -------------------------------------------------------------------------
 
   fout <- file.path(outputPath(sim), "figures", c(
     paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".pdf"), ## TODO: use .png
@@ -485,7 +367,7 @@ plotAll <- function(sim) {
   f2pd <- list.files(outputPath(sim), pattern = "zoneStats_summary_WBI_distMask_ecozone_", full.names = TRUE) ## TODO: use fs pkg
   f2pd2 <- list.files(outputPath(sim), pattern = "WBI_distMask_ecozone", full.names = TRUE) ## TODO: use fs pkg
 
-  ## 6a) without disturbance mask
+  ## 7a) without disturbance mask
 
   ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), etc.
   png() ## TODO
@@ -503,7 +385,7 @@ plotAll <- function(sim) {
   lapply(plotZoneStatsIntervals(files2plot = f2p, weighted = TRUE, xVar = "tp", catVar = "ageClass", groupVar = "ECOZONE", ptype = 2), plot)
   dev.off()
 
-  ## 6b) with disturbance mask
+  ## 7b) with disturbance mask
   ## TODO: make this a box plot per ecozone
   png() ## TODO
   plotZoneStats(file2plot = file.path(outputPath(sim), paste0("zoneStats_summary_WBI_distMask_ecozone.rds")))
