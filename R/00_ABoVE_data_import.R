@@ -27,7 +27,7 @@ paths <- list(
   outputs = "outputs",
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$terra <- file.path(paths$scratch, "terra")
+paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
 
 no_cores <- min(parallel::detectCores() / 2, 32L)
 
