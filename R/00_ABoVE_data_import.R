@@ -1,7 +1,9 @@
 ## Date Created: Nov 17, 2022
-## Auteur: Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
+## Auteurs: Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
+##          Alex M. Chubaty, PhD, FOR-CAST Research & Analytics
 ##
 ## Name of script : "00_ABoVE_data_import.R"
+##
 ## Description :
 ##   Import 1) above-ground biomass (AGB) and 2) disturbance (year/type) time series datasets
 ##   created through the Arctic-Boreal Vulnerability Experiment (ABoVE) research project

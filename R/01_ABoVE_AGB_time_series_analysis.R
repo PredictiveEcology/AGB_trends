@@ -1,9 +1,12 @@
 ## Date Created: Nov 30, 2022
-## Auteur: Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
+## Auteurs: Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
+##          Alex M. Chubaty, PhD, FOR-CAST Research & Analytics
 ##
 ## Name of script : "01_ABoVE_AGB_time_series_analysis.R"
 ##
-## Description : R script serving to estimate cell-wise linear regression coefficients for ABoVE AGB 31-year time series (1984-2014)
+## Description :
+##   R script serving to estimate cell-wise linear regression coefficients for
+##   ABoVE AGB 31-year time series (1984-2014)
 
 # package installation and loading ------------------------------------------------------------
 Require::Require(c("dplyr", "ggplot2", "parallelly", "reproducible", "sf", "stringr", "terra",
