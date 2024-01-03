@@ -8,23 +8,24 @@
 ##   <https://daac.ornl.gov/cgi-bin/dataset_lister.pl?p=34>;
 ##   3) Import CaNFIR kNN stand age estimation (2020)
 ##   4) Create spatial reference polygons corresponding to individual ABoVE tiles
-##
 
 # package installation and loading ------------------------------------------------------------
+Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(
-  c("dplyr", "googledrive", "parallelly", "reproducible", "sf", "stringr", "terra"),
+  c("dplyr", "ggplot2", "googledrive", "parallelly", "reproducible", "sf", "stringr", "terra"),
   upgrade = FALSE
 )
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
+studyAreaName <- "studyArea_WBI"
 user <- Sys.info()[["user"]]
 
 paths <- list(
   project = getwd(),
   cache = "cache",
   inputs = "inputs",
-  outputs = "outputs",
+  outputs = file.path("outputs", studyAreaName),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
@@ -35,7 +36,7 @@ terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 auth_json <- list.files(pattern = "forprod-.*[.]json")
 if (length(auth_json) == 0) {
-  stop("Google Service Account token file (.json)) not found.")
+  stop("Google Service Account token file (.json) not found.")
 }
 
 drive_auth(path = auth_json)
@@ -55,7 +56,7 @@ parLapply(cl, 1:nrow(agbtiles), function(m) {
     httr::with_config(config = httr::config(http_version = 2), {
       drive_download(
         file = as_id(agbtiles[m, ]),
-        path = file.path(paths$inputs, "ABoVE_AGB_30m/data", agbtiles$name[m]),
+        path = file.path(paths$inputs, "ABoVE_AGB_30m", "data", agbtiles$name[m]),
         overwrite = TRUE
       ) # use check files instead + check sums
     })
@@ -65,7 +66,6 @@ parLapply(cl, 1:nrow(agbtiles), function(m) {
 stopCluster(cl)
 
 # 2) download tiled ABoVE Forest Disturbance Agents -------------------------------------------
-drive_auth(path = auth_json)
 distiles <- drive_ls(as_id("1CNalAGmw9fO0-TuMMqLt3HrMNTj6cnER"))
 
 ## 2 a) setup parallel processing (one thread per tile) ---------------------------------------
@@ -107,7 +107,7 @@ preProcess(
 )
 
 ## 4 a) Create vector polygons corresponding to ABoVE AGB raster tiles ------------------------
-dsn <- file.path(paths$inputs, "ABoVE_AGB_30m/data")
+dsn <- file.path(paths$inputs, "ABoVE_AGB_30m", "data")
 rfiles <- list.files(dsn, pattern = "AGB_B")
 
 ## individual tile bounding boxes
@@ -126,7 +126,8 @@ st_write(
 
 ## append individual tiles
 vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
-  st_as_sf(st_as_sfc(st_bbox(c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]))), data.frame(tile_name = rfiles[m]))
+  st_as_sf(st_as_sfc(st_bbox(c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]))),
+           data.frame(tile_name = rfiles[m]))
 }))
 st_crs(vtiles) <- crs(rast(file.path(dsn, rfiles[1])))
 st_write(
@@ -145,7 +146,7 @@ boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(
 ## wide area bounding box
 Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)])))
 st_crs(Abox) <- st_read(
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg"),
+  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
   layer = "study_area"
 ) |>
   st_crs() # identical CRS to AGB product, but mis-specified
@@ -175,7 +176,7 @@ st_write(
 
 ## ABoVE default CRS (Canada_Albers_Equal_Area_Conic)
 targetCRS <- st_read(
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m/ABoVE_AGB_study_area.gpkg"),
+  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
   layer = "study_area"
 ) |>
   st_crs()
@@ -209,28 +210,31 @@ studyArea <- bcrWB |>
   st_intersection(provsWB) |>
   group_by(BCR, Label) |>
   summarize() |>
-  st_write(dsn = "inputs/WBI/WBI_studyArea.gpkg", driver = "GPKG", delete_layer = TRUE)
+  st_write(dsn = file.path(paths$outputs, "WBI_studyArea.gpkg"), driver = "GPKG", delete_layer = TRUE)
 
 ## OPTIONAL: Visually compare available tiles between ABoVE products and WBI study area -------
 
 ## 1) AGB tiles
-agb_sa <- st_read(file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"), "study_area")
-agb_tiles <- st_read(file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"), "tileset")
+agb_sa <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "study_area")
+agb_tiles <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "tileset")
 
 ## 2) Disturbance history tiles
-dist_sa <- st_read(file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "ABoVE_DistAgents_study_area.gpkg"), "study_area")
-dist_tiles <- st_read(file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "ABoVE_DistAgents_study_area.gpkg"), "tileset")
+dist_sa <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "study_area")
+dist_tiles <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "tileset")
 
 ## 3) WBI study area
-wbi <- st_read(file.path(paths$inputs, "WBI_studyArea.gpkg"))
+wbi <- st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"))
 
 ## 4) Comparison plot
 
-# dir.create('figures')
-# png ...
+plot_studyArea_tiles <- function() {
+  plot(wbi |> st_geometry())
+  plot(filter(dist_tiles, apply(relate(x = vect(dist_tiles), y = vect(wbi), relation = "intersects"), 1, any)) |> st_geometry(), border = "red", add = TRUE)
+  plot(filter(agb_tiles, apply(relate(x = vect(agb_tiles), y = vect(wbi), relation = "intersects"), 1, any)) |> st_geometry(),
+    border = "lightblue", add = TRUE
+  )
+}
 
-plot(wbi |> st_geometry())
-plot(filter(dist_tiles, apply(relate(x = vect(dist_tiles), y = vect(wbi), relation = "intersects"), 1, any)) |> st_geometry(), border = "red", add = TRUE)
-plot(filter(agb_tiles, apply(relate(x = vect(agb_tiles), y = vect(wbi), relation = "intersects"), 1, any)) |> st_geometry(),
-  border = "lightblue", add = TRUE
-)
+gg_tiles <- cowplot::plot_grid(plot_studyArea_tiles)
+
+ggsave(file.path(paths$outputs, "figures", paste0("ABoVE_tiles_", studyAreaName, ".png")), gg_tiles, width = 12, height = 8)
