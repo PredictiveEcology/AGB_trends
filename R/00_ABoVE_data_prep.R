@@ -277,7 +277,7 @@ ecoRast <- terra::rasterize(
   filename = file.path(paths$terra, "ecoRast.tif")
 )
 
-no_cores <- 6
+no_cores <- 6L
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("terra"),
   rscript_libs = .libPaths(),

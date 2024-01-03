@@ -266,7 +266,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("dplyr", "sf", "terra"),
   rscript_libs = .libPaths(), autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("zoneStats", "irast", "no_cores"), envir = environment())
+parallel::clusterExport(cl, varlist = c("irast", "no_cores", "zoneStats"), envir = environment())
 parallel::clusterEvalQ(cl, terraOptions(tempdir = paths$terra, memfrac = 0.5 / no_cores))
 
 system.time({
@@ -311,10 +311,16 @@ agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
 agb_mosaic_classes <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000_classes.tif")
 
 ## TODO: use sf gdal utils
-gdalbuildvrt(rPath, b = 17, output.vrt = file.path(paths$terra, "agb_2000.vrt"))
-gdalwarp(
-  srcfile = file.path(paths$terra, "agb_2000.vrt"),
-  dstfile = agb_mosaic
+sf::gdal_utils(
+  util = "buildvrt",
+  source = rPath,
+  destination = file.path(paths$terra, "agb_2000.vrt"),
+  options = c("-b", "17") ## band 17
+)
+sf::gdal_utils(
+  util = "warp",
+  source = file.path(paths$terra, "agb_2000.vrt"),
+  destination = agb_mosaic
 )
 
 ## i) rescale by 0.01 and classify into bins similar to Wang et al.
@@ -338,18 +344,16 @@ agbClass <- zonal(rast() * 0.09,
 )
 
 ## iii) visualize AGB (in Tg * 0.01) by age class (Mg/ha * 0.01)
-## TODO: use ggsave
-png(file = file.path(paths$outputs, "figures", "AGB_distribution_x_ageClass.png"), width = 7.5, height = 4, units = "in", res = 300)
-ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_2000 * 1e-6 * 0.01))) +
+gg_agb_age_class <- ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_2000 * 1e-6 * 0.01))) +
   scale_x_discrete(name = "Stand Age Class", labels = c("0-24", "25-49", "50-79", "80-124", ">= 125")) +
   scale_y_continuous(name = "AGB (Tg * 0.01)") +
   geom_bar(stat = "identity")
-dev.off()
+
+ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_ageClass.png"), gg_agb_age_class,
+       width = 7.5, height = 4)
 
 ## iv) visualize AGB (in Tg) by AGB class as per Wang et al. (2021)
-## TODO: use ggsave
-png(file = file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), width = 7.5, height = 4, units = "in", res = 300)
-ggplot(
+gg_agb_agb_class <- ggplot(
   data = agbClass |>
     rename(agbClass = agb_mosaic_2000, agb = agb_mosaic_2000.1) |>
     mutate(agbClass = factor(agbClass, levels = agbClass)),
@@ -361,13 +365,15 @@ ggplot(
   ) +
   scale_y_continuous(name = "AGB Stock (Tg * 0.01)") +
   geom_bar(stat = "identity")
-dev.off()
+
+ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), gg_agb_agb_class,
+       width = 7.5, height = 4)
 
 ## Request 2: cumulative delta AGB by ecozone
-tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE) ## TODO: use fs
+tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE)
 agbPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", full.names = TRUE)))
 
-no_cores <- min(parallel::detectCores() / 2, 20L)
+no_cores <- min(parallelly::availableCores(constraints = c("connections")) / 2, 20L)
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("dplyr", "sf", "terra"),
   rscript_libs = .libPaths(),
@@ -376,7 +382,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
 parallel::clusterExport(cl, varlist = c("no_cores"))
 parallel::clusterEvalQ(cl, {
   terraOptions(
-    tempdir = terraDir,
+    tempdir = paths$terra,
     memmax = 25,
     memfrac = 0.6 / no_cores,
     progress = 1,
@@ -385,10 +391,10 @@ parallel::clusterEvalQ(cl, {
 })
 
 do.call(rbind, parallel::parLapply(cl, agbPath, function(r) {
-  ez <- rasterize(st_read("outputs/WBI_studyArea.gpkg", quiet = TRUE) |> select("ECOZONE"),
-    rast(r, lyr = "1984"),
-    field = "ECOZONE"
-  )
+  ez <- file.path(paths$outputs, "WBI_studyArea.gpkg") |>
+    st_read(quiet = TRUE) |>
+    select("ECOZONE") |>
+    rasterize(rast(r, lyr = "1984"), field = "ECOZONE")
 
   yrs <- names(rast(r))
 
@@ -400,12 +406,11 @@ do.call(rbind, parallel::parLapply(cl, agbPath, function(r) {
 
   return(x)
 })) |>
-  saveRDS(file = "outputs/sum_AGB_x_Ecozone.rds")
+  saveRDS(file = file.path(paths$outputs, "sum_AGB_x_Ecozone.rds"))
 
 parallel::stopCluster(cl)
 
-
-ptab <- readRDS("outputs/sum_AGB_x_Ecozone.rds") |>
+ptab <- readRDS(file.path(paths$outputs, "sum_AGB_x_Ecozone.rds")) |>
   arrange(ECOZONE, Year) |>
   group_by(ECOZONE, Year) |>
   summarize(AGB = sum(AGB, na.rm = TRUE) * 1e-6) |>
@@ -443,9 +448,7 @@ lapply(1:length(ecozones), function(i) {
     return((x + shift) / scale)
   }
 
-  png(file = paste0("outputs/figures/AGB_distribution_x_Year_", ecozones[i], ".png"), width = 7.5, height = 4, units = "in", res = 300)
-
-  ggplot(
+  gg_ptab_ez <- ggplot(
     data = df |>
       bind_rows(data.frame(ECOZONE = ecozones[i], AGB = NA, Year = 1984, dAGB = 0)),
     aes(x = Year, y = dAGB, weight = c(rep(1, nrow(df)), 100), color = "dAGB (Tg)")
@@ -461,10 +464,9 @@ lapply(1:length(ecozones), function(i) {
     geom_hline(yintercept = 0, lty = "dashed") +
     labs(color = "Units")
 
-  dev.off()
+  ggsave(file.path(paths$outputs, "figures", paste0("AGB_distribution_x_Year_", ecozones[i], ".png")),
+         gg_ptab_ez, width = 7.5, height = 4)
 })
-
-
 
 # 7) Plot differences -------------------------------------------------------------------------
 
@@ -485,7 +487,7 @@ dev.off()
 
 ## x ageClass x Ecozone
 ## TODO: this one crashes :(
-png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".pngf")))
+png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")))
 lapply(plotZoneStatsIntervals(
   files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "zoneStats_summary_WBI_ecozone_")),
   weighted = TRUE, xVar = "tp", catVar = "ageClass", groupVar = "ECOZONE", ptype = 2
@@ -496,7 +498,7 @@ dev.off()
 plotZoneStats(file2plot = file.path(paths$outputs, paste0("zoneStats_summary_WBI_distMask_ecozone.rds")))
 
 ## x ageClass x Ecozone
-pdf(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".pdf")))
+png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")))
 lapply(plotZoneStatsIntervals(
   files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "zoneStats_summary_WBI_distMask_ecozone_")),
   weighted = TRUE, xVar = "tp", catVar = "ageClass", groupVar = "ECOZONE", ptype = 2
