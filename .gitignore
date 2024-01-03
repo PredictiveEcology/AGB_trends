@@ -8,7 +8,7 @@
 
 # tokens etc.
 .httr-oauth
-forprod*.json
+*.json
 
 # project directories
 /cache/
