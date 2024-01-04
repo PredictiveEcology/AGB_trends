@@ -221,15 +221,15 @@ parallel::stopCluster(cl)
 ## 1 a) range
 
 ## i) make mosaic for year 2000
-tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE)
-rPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", full.names = TRUE)))
+
+agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE)
 
 agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
 agb_mosaic_classes <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000_classes.tif")
 
 sf::gdal_utils(
   util = "buildvrt",
-  source = rPath,
+  source = agb_tifs,
   destination = file.path(paths$terra, "agb_2000.vrt"),
   options = c("-b", "17") ## band 17
 )
@@ -286,8 +286,8 @@ ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), g
        width = 7.5, height = 4)
 
 ## Request 2: cumulative delta AGB by ecozone -------------------------------------------------
-tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE)
-agbPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", full.names = TRUE)))
+
+agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE)
 
 no_cores <- AGBtrends::getNumCores(20L) ## TODO: why 20 here; RAM limitations?
 cl <- parallelly::makeClusterPSOCK(no_cores,
@@ -306,7 +306,7 @@ parallel::clusterEvalQ(cl, {
   )
 })
 
-do.call(rbind, parallel::parLapply(cl, agbPath, function(r) {
+do.call(rbind, parallel::parLapply(cl, agb_tifs, function(r) {
   ez <- file.path(paths$outputs, "WBI_studyArea.gpkg") |>
     st_read(quiet = TRUE) |>
     select("ECOZONE") |>
