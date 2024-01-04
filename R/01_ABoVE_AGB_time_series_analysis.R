@@ -266,7 +266,7 @@ gg_agb_age_class <- ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_200
   geom_bar(stat = "identity")
 
 ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_ageClass.png"), gg_agb_age_class,
-       width = 7.5, height = 4)
+       width = 8, height = 4)
 
 ## iv) visualize AGB (in Tg) by AGB class as per Wang et al. (2021)
 gg_agb_agb_class <- ggplot(
@@ -283,11 +283,11 @@ gg_agb_agb_class <- ggplot(
   geom_bar(stat = "identity")
 
 ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), gg_agb_agb_class,
-       width = 7.5, height = 4)
+       width = 8, height = 4)
 
 ## Request 2: cumulative delta AGB by ecozone -------------------------------------------------
 
-agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE)
+agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE) ## 81 files
 
 no_cores <- AGBtrends::getNumCores(20L) ## TODO: why 20 here; RAM limitations?
 cl <- parallelly::makeClusterPSOCK(no_cores,
@@ -381,7 +381,7 @@ lapply(1:length(ecozones), function(i) {
     labs(color = "Units")
 
   ggsave(file.path(paths$outputs, "figures", paste0("AGB_distribution_x_Year_", ecozones[i], ".png")),
-         gg_ptab_ez, width = 7.5, height = 4)
+         gg_ptab_ez, width = 8, height = 4)
 })
 
 # 7) Plot differences -------------------------------------------------------------------------
@@ -398,7 +398,7 @@ gg_71 <- plotZoneStats(
 ggsave(
   file.path(paths$outputs, "figures", "AGB_global_trends_WBI_ecozone_x_ageClass.png"),
   gg_71,
-  width = 7.5,
+  width = 8,
   height = 4
 )
 
