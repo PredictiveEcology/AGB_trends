@@ -96,7 +96,8 @@ plot_slope_mosaics <- function() {
 
 gg_slope_mosaics <- cowplot::plot_grid(plot_slope_mosaics)
 
-ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaics.png"), gg_slope_mosaics, height = 5, width = 10)
+ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaics.png"),
+       gg_slope_mosaics, height = 5, width = 10)
 
 plot_slope_mosaic_hists <- function() {
   par(mfrow = c(2, 3))
