@@ -64,7 +64,7 @@ library(Require)
 setLinuxBinaryRepo()
 
 Require(c(
-  "PredictiveEcology/AGBtrends@development",
+  "PredictiveEcology/AGBtrends (>= 0.0.2)",
   "PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
   "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
   "PredictiveEcology/SpaDES.tools@development"
@@ -79,9 +79,9 @@ Install(unique(c(modulePkgs, otherPkgs)), standAlone = TRUE, upgrade = FALSE)
 
 ## NOTE: always load packages LAST, after installation above;
 ##       ensure plyr loaded before dplyr or there will be problems
-Require(c( "plyr", "dplyr",
-           "data.table", "googledrive", "httr", "pryr", "sessioninfo", "sf", "terra",
-           "SpaDES.core"),
+Require(c("plyr", "dplyr",
+          "data.table", "googledrive", "httr", "pryr", "sessioninfo", "sf", "terra",
+          "SpaDES.core"),
         standAlone = TRUE, upgrade = FALSE)
 
 # configure project ---------------------------------------------------------------------------
