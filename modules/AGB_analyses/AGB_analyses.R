@@ -123,11 +123,11 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
     },
     slopesPerTime = {
       ## 2.1.1) calculate local slope coefficient for specified time interval
-      f1 <- gwrt(mod$tile_folders, type = "slope", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      f1 <- AGBtrends::gwrt(mod$tile_folders, type = "slope", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
       # sim <- registerOutputs(sim, f1) ## TODO: enable once implement in SpaDES.core
 
       ## 2.1.2) stock number of non-NA values for subsequent weighted standard deviation
-      f2 <- gwrt(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      f2 <- AGBtrends::gwrt(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
       # sim <- registerOutputs(sim, f2) ## TODO: enable once implement in SpaDES.core
     },
     createMosaicRasts = {

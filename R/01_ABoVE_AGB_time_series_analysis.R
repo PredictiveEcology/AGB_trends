@@ -88,10 +88,10 @@ f3 <- tifs
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
 
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
-f1 <- gwrt(tile_folders, type = "slope", cores = no_cores, intervals = intervals)
+f1 <- AGBtrends::gwrt(tile_folders, type = "slope", cores = no_cores, intervals = intervals)
 
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
-f2 <- gwrt(tile_folders, type = "nsamp", cores = no_cores, intervals = intervals)
+f2 <- AGBtrends::gwrt(tile_folders, type = "nsamp", cores = no_cores, intervals = intervals)
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
