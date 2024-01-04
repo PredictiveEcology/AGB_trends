@@ -33,24 +33,15 @@ paths$tiles <- file.path(paths$outputs, "tiles") |>
 options(parallelly.availableCores.custom = AGBtrends::getNumCores)
 no_cores <- AGBtrends::getNumCores()
 
-terraOptions(tempdir = paths$terra, todisk = TRUE)
-
 file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
-
-oldTmpDir <- tempdir()
-newTmpDir <- file.path(paths$scratch, "tmp")
-if (!dir.exists(newTmpDir)) dir.create(newTmpDir, recursive = TRUE)
-newTmpDir <- tools::file_path_as_absolute(newTmpDir)
-Sys.setenv(TMPDIR = newTmpDir)
-unlink(oldTmpDir, recursive = TRUE)
-tempdir(check = TRUE)
 
 terraOptions(
   tempdir = paths$terra,
   memmax = 25,
   memfrac = 0.8,
   progress = 1,
-  verbose = TRUE
+  verbose = TRUE,
+  todisk = TRUE
 )
 
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
@@ -345,7 +336,7 @@ lapply(1:length(ecozones), function(i) {
 
   # Function to scale secondary axis
   scale_function <- function(x, scale, shift) {
-    return((x) * scale - shift)
+    return(x * scale - shift)
   }
 
   # Function to scale secondary variable values
@@ -375,42 +366,86 @@ lapply(1:length(ecozones), function(i) {
 
 # 7) Plot differences -------------------------------------------------------------------------
 
+## TODO: use ggsave()
+
 ## 7 a) without disturbance mask --------------------------------------------------------------
 
 ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
-png(file = "outputs/AGB_global_trends_WBI_ecozone_x_ageClass.png", width = 7.5, height = 4, units = "in", res = 300)
-plotZoneStats(file2plot = file.path(paths$outputs, "zoneStats_summary_WBI_ecozone.rds"))
-dev.off()
+gg_71 <- plotZoneStats(
+  file2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_ecozone.rds")
+)
+
+ggsave(
+  file.path(paths$outputs, "figures", "AGB_global_trends_WBI_ecozone_x_ageClass.png"),
+  gg_71,
+  width = 7.5,
+  height = 4
+)
 
 ## x Ecozone x ageClass
-png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".png")))
-lapply(plotZoneStatsIntervals(
-  files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "zoneStats_summary_WBI_ecozone_")),
-  weighted = TRUE, xVar = "tp", groupVar = "ageClass", ptype = 1
-), plot)
-dev.off()
+files2plot <- file.path(paths$outputs, "summaries") |>
+  list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
+
+gg_72 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp", groupVar = "ageClass", ptype = 1)
+
+ggsave(
+  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".png")),
+  gg_72,
+  width = 8,
+  height = 4
+)
 
 ## x ageClass x Ecozone
-## TODO: this one crashes :(
-png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")))
-lapply(plotZoneStatsIntervals(
-  files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "zoneStats_summary_WBI_ecozone_")),
-  weighted = TRUE, xVar = "tp", catVar = "ageClass", groupVar = "ECOZONE", ptype = 2
-), plot)
-dev.off()
+files2plot <- file.path(paths$outputs, "summaries") |>
+  list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
+
+gg_73 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp",
+                                catVar = "ageClass", groupVar = "ECOZONE",
+                                ptype = 2, plotResult = FALSE) |>
+  cowplot::plot_grid(plotlist = _)
+
+ggsave(
+  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")),
+  gg_73,
+  width = 10,
+  height = 5
+)
 
 ## 7 b) with disturbance mask -----------------------------------------------------------------
-plotZoneStats(file2plot = file.path(paths$outputs, paste0("zoneStats_summary_WBI_distMask_ecozone.rds")))
+gg_74 <- plotZoneStats(
+  file2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_distMask_ecozone.rds")
+)
+
+## TODO: verify & adjust output filename
+# ggsave(
+#   file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+#   gg_74
+# )
 
 ## x ageClass x Ecozone
-png(file = file.path(paths$outputs, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")))
-lapply(plotZoneStatsIntervals(
-  files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "zoneStats_summary_WBI_distMask_ecozone_")),
-  weighted = TRUE, xVar = "tp", catVar = "ageClass", groupVar = "ECOZONE", ptype = 2
-), plot)
-dev.off()
+files2plot <- file.path(paths$outputs, "summaries") |>
+  list.files(pattern = "zoneStats_summary_WBI_distMask_ecozone_", full.names = TRUE)
 
-gp <- plotZoneStatsIntervals(files2plot = file.path(paths$outputs, list.files(paths$outputs, pattern = "WBI_distMask_ecozone")))
+gg_75 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp",
+                                catVar = "ageClass", groupVar = "ECOZONE",
+                                ptype = 2, plotResult = FALSE) |>
+  cowplot::plot_grid(plotlist = _) ## TODO: why is `0-24` the ontly ageClass???
+
+ggsave(
+  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+  gg_75
+)
+
+files2plot = file.path(paths$outputs, "summaries") |>
+  list.files(pattern = "WBI_distMask_ecozone", full.names = TRUE)
+
+gg_76 <- plotZoneStatsIntervals(files2plot) ## TODO: why is `0-24` the ontly ageClass???
+
+## TODO: verify & adjust output filename
+# ggsave(
+#   file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+#   gg_76
+# )
 
 # 8) Test for significant differences between groups ------------------------------------------
 
