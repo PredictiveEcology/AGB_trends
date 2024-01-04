@@ -44,6 +44,10 @@ terraOptions(
   todisk = TRUE
 )
 
+## define time intervals (year ranges between 1984-2014)
+timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
+timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
+
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
 ## aka "local" or "geographically weighted regression (GWR)"
 
@@ -52,15 +56,12 @@ f2 <- AGBtrends::gwr(paths$tiles, type = "nsamp", cores = length(paths$tiles))
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
-f3a <- AGBtrends::buildMosaics("slope", intervals = c(all = 1:31), paths = paths)
-f3b <- AGBtrends::buildMosaics("sample_size", intervals = c(all = 1:31), paths = paths)
+f3a <- AGBtrends::buildMosaics("slope", intervals = timeint_all, paths = paths)
+f3b <- AGBtrends::buildMosaics("sample_size", intervals = timeint_all, paths = paths)
 
 f3 <- c(f3a, f3b)
 
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
-
-## define time intervals (year ranges between 1984-2014)
-timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
 
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
 f4 <- AGBtrends::gwrt(paths$tiles, type = "slope", cores = no_cores, intervals = timeint)
