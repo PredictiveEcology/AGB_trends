@@ -17,7 +17,7 @@ defineModule(sim, list(
   documentation = list("NEWS.md", "README.md", "AGB_analyses.Rmd"),
   reqdPkgs = list("dplyr", "gdalUtilities", "ggplot2", "ggspatial",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
-                  "PredictiveEcology/AGBtrends",
+                  "PredictiveEcology/AGBtrends (>= 0.0.2)",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -97,29 +97,11 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
       outputDir <- outputPath(sim)
       scratchDir <- scratchPath(sim)
       tileDirs <- mod$tile_folders
-######### TODO: incorporate into buildMosaics() and use here
-      vrts <- file.path(scratchDir, c("AGB_slope_mosaic.vrt", "AGB_sample_size_mosaic.vrt"))
-      tifs <- file.path(outputsDir, c("AGB_slope_mosaic.tif", "AGB_sample_size_mosaic.tif"))
 
-      agb_slopes_Bh <- vapply(tileDirs, function(dsn) {
-        fs::dir_ls(dsn, regexp = "agb_slopes_Bh")
-      }, character(1)) |>
-        unname()
+      tifs1 <- AGBtrends::buildMosaics(type = "slope", intervals = c(all = 1:31), paths = paths)
+      tifs2 <- AGBtrends::buildMosaics(type = "sample_size", intervals = c(all = 1:31), paths = paths)
 
-      agb_sample_size_Bh <- vapply(tileDirs, function(dsn) {
-        fs::dir_ls(dsn, regexp = "agb_sample_size_Bh")
-      }, character(1)) |>
-        unname()
-
-      ## 1.2.1) Build virtual rasters
-      sf::gdal_utils(util = "buildvrt", source = agb_slopes_Bh, destination = vrts[1])
-      sf::gdal_utils(util = "buildvrt", source = agb_sample_size_Bh, destination = vrts[2])
-
-      ## 1.2.2) Write to raster mosaics
-      sf::gdal_utils(utils = "warp", source = vrts[1], destination = tifs[1])
-      sf::gdal_utils(utils = "warp", source = vrts[2], destination = tifs[2])
-
-      # sim <- registerOutputs(sim, tifs) ## TODO: enable once implement in SpaDES.core
+      # sim <- registerOutputs(sim, c(tifs1, tifs2)) ## TODO: enable once implement in SpaDES.core
     },
     slopesPerTime = {
       ## 2.1.1) calculate local slope coefficient for specified time interval
@@ -139,8 +121,10 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
         tiles = mod$tile_folders
       )
 
-      f <- buildMosaics(intervals = intervals, paths = paths, cores = cores)
-      # sim <- registerOutputs(sim, f) ## TODO: enable once implement in SpaDES.core
+      f3a <- buildMosaics(type = "slope", intervals = intervals, paths = paths)
+      f3b <- buildMosaics(type = "sample_size", intervals = intervals, paths = paths)
+
+      # sim <- registerOutputs(sim, c(f3a, f3b)) ## TODO: enable once implement in SpaDES.core
     },
     slopesByAgeTime = {
       sim <- groupSlopes(sim)
@@ -188,7 +172,7 @@ groupSlopes <- function(sim) {
   terraDir <- terraPath(sim)
   tileDirs <- mod$tile_folders
   timeint <- P(sim)$summaryIntervals
-browser()
+browser() ## TODO: replace this chunk with AGBtrends::buildMosaics()
   cl <- parallelly::makeClusterPSOCK(ncores,
                                      default_packages = c("terra", "gdalUtilities"),
                                      rscript_libs = .libPaths(),
@@ -204,30 +188,45 @@ browser()
                  verbose = TRUE)
   })
 
-  parallel::parLapply(cl, seq_len(length(P(sim)$summaryIntervals)), function(i) {
+  fout <- parallel::parLapply(cl, seq(length(timeint)), function(i) {
     ## 3.1) Build virtual raster of estimated stand age at time 0 (i.e. 1984)
-    gdalbuildvrt(
-      gdalfile = sapply(tile_folders, function(dsn) unname(file.path(dsn, list.files(dsn, pattern = "rage")))),
-      output.vrt = file.path(cacheDir, paste0("AGB_age_mosaic_t", i, ".vrt")),
-      b = c(1, 6, 11, 16, 21, 26)[i], # time 1 = 1984 etc. ## TODO: use sapply(timeint, `[`, 1)
-      overwrite = TRUE
+    sf::gdal_utils(
+      util = "buildvrt",
+      source = sapply(paths$tiles, function(dsn) unname(file.path(dsn, list.files(dsn, pattern = "rage")))),
+      destination = file.path(paths$cache, paste0("AGB_age_mosaic_t", i, ".vrt")),
+      ## !! MODIFY if doing alternative time steps is a DESIRED functionality (e.g. 10-year, etc.)
+      options = c("-b", c(1, 6, 11, 16, 21, 26)[i]) # time 1 = 1984 etc.
     )
 
     ## 3.2) Write to raster mosaic (stand age, kNN 2020)
-    gdalwarp(srcfile = file.path(cacheDir, paste0("AGB_age_mosaic_t", i, ".vrt")),
-             dstfile = file.path(cleanTilePath, paste0("AGB_age_mosaic_t", i, ".tif")),
-             overwrite = TRUE)
+    f_ageMosaic <- file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_t", i, ".tif"))
+    sf::gdal_utils(
+      util = "warp",
+      source = file.path(paths$cache, paste0("AGB_age_mosaic_t", i, ".vrt")),
+      destination = f_ageMosaic
+    )
 
     ## 3.3) Group into 5 discrete age classes
-    RCL <- cbind(from = c(0, 25, 50, 80, 125), to = c(25, 50, 80, 125, 500), becomes = 1L:5L)
-    ageRast <- classify(rast(file.path(cleanTilePath, paste0("AGB_age_mosaic_t", i, ".tif"))),
-                        rcl = RCL, right = FALSE, others = NA_integer_)
-    names(ageRast) <- "ageClass"
-    levels(ageRast) <- data.frame(value = RCL$becomes, ageClass = paste0(RCL$from, "-", RCL$to))
-    writeRaster(ageRast, file.path(cleanTilePath, paste0("AGB_age_mosaic_classes_t", i, ".tif")), overwrite = TRUE)
+    ages_from <- c(25, 50, 80, 125, 500)
+    ages_to <- c(24, 49, 79, 124, 500)
 
-    return(invisible(NULL))
-  })
+    ageRast <- classify(
+      rast(f_ageMosaic),
+      rcl = cbind(from = ages_from, to = ages_to, becomes = 1L:5L),
+      right = FALSE, others = NA_integer_
+    )
+
+    names(ageRast) <- "ageClass"
+    levels(ageRast) <- data.frame(value = 1:5, ageClass = paste0(ages_from, "-", to = ages_to))
+
+    f_ageMosaicClass <- file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_classes_t", i, ".tif"))
+    writeRaster(ageRast, f_ageMosaicClass, overwrite = TRUE)
+
+    return(f_ageMosaicClass)
+  }) |>
+    unlist()
+
+  # sim <- registerOutputs(sim, fout) ## TODO: enable once implement in SpaDES.core
 
   return(invisble(sim))
 }
@@ -240,12 +239,12 @@ studyAreaByZOI <- function(sim) {
   terraDir <- terraPath(sim)
 browser()
   cl <- parallelly::makeClusterPSOCK(ncores,
-                                     default_packages = c("terra", "gdalUtilities"),
+                                     default_packages = c("AGBtrends", "sf", "terra"),
                                      rscript_libs = .libPaths(),
                                      autoStop = TRUE)
   on.exit(stopCluster(cl), add = TRUE)
 
-  parallel::clusterExport(cl, varlist = c("ncores", "prepZones"), envir = environment())
+  parallel::clusterExport(cl, varlist = c("ncores"), envir = environment())
   parallel::clusterEvalQ(cl, {
     terraOptions(tempdir = terraDir, memfrac = 0.5 / ncores)
   })
@@ -292,12 +291,12 @@ browser()
   )
 
   cl <- parallelly::makeClusterPSOCK(ncores,
-                                     default_packages = c("terra", "gdalUtilities", "dplyr"),
+                                     default_packages = c("AGBtrends", "dplyr", "terra"),
                                      rscript_libs = .libPaths(),
                                      autoStop = TRUE)
   on.exit(stopCluster(cl), add = TRUE)
 
-  parallel::clusterExport(cl, varlist = c("irast", "ncores", "zoneStats"), envir = environment())
+  parallel::clusterExport(cl, varlist = c("irast", "ncores"), envir = environment())
   parallel::clusterEvalQ(cl, {
     terraOptions(tempdir = terraDir, memfrac = 0.5 / ncores)
   })

@@ -9,7 +9,8 @@
 ##   using a combination of ABoVE Disturbance Agents and the CaNFIR stand age mosaic (kNN 2020)
 
 # package installation and loading ------------------------------------------------------------
-Require::Require(c("dplyr", "parallelly", "reproducible", "sf", "stringr", "terra"), upgrade = FALSE)
+Require::Require(c("dplyr", "reproducible", "sf", "stringr", "terra",
+                   "PredictiveEcology/AGBtrends (>= 0.0.2)"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
@@ -25,7 +26,9 @@ paths <- list(
 )
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
 
-no_cores <- min(parallel::detectCores() / 2, 8L)
+## set the max number of cores to use for parallel computations
+options(parallelly.availableCores.custom = AGBtrends::getNumCores)
+no_cores <- AGBtrends::getNumCores()
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)
 
@@ -53,7 +56,8 @@ distfiles <- distfiles[match(tilenames, str_sub(distfiles, end = 7L))]
 # 2) Estimate cell-specific stand age ---------------------------------------------------------
 ## using a combination of ABoVE Disturbance Agents and the CaNFIR stand age mosaic (kNN 2020)
 
-cl <- parallelly::makeClusterPSOCK(no_cores,
+cl <- parallelly::makeClusterPSOCK(
+  no_cores,
   default_packages = c("terra", "sf", "stringr"),
   rscript_libs = .libPaths(),
   autoStop = TRUE
@@ -63,7 +67,7 @@ parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
     memmax = 25,
-    memfrac = 0.6,
+    memfrac = 0.6 / no_cores,
     progress = 1,
     verbose = TRUE
   )
@@ -71,7 +75,7 @@ parallel::clusterEvalQ(cl, {
 
 ptime <- system.time({
   ## 1 b) import raster tiles
-  parLapply(cl, 1:length(tilenames), function(i) {
+  parLapply(cl, seq(length(tilenames)), function(i) {
     tdir <- file.path(paths$outputs, "tiles", tilenames[i])
     if (!file.exists(tdir)) dir.create(tdir)
 
@@ -154,7 +158,7 @@ ptime <- system.time({
 distdsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "data")
 distfiles <- list.files(distdsn, pattern = ".tif")
 
-no_cores <- 25
+no_cores <- AGBtrends::getNumCores(25L) ## TODO: why 25 here; RAM issues?
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("stringr", "terra"),
   rscript_libs = .libPaths(),
@@ -166,7 +170,7 @@ parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
     memmax = 25,
-    memfrac = 0.8,
+    memfrac = 0.8 / no_cores,
     progress = 1,
     verbose = TRUE
   )
@@ -278,7 +282,7 @@ ecoRast <- terra::rasterize(
   filename = file.path(paths$terra, "ecoRast.tif")
 )
 
-no_cores <- 6L
+no_cores <- AGBtrends::getNumCores(6L) ## TODO: why 6 here; number of time intervals?
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("terra"),
   rscript_libs = .libPaths(),
@@ -289,7 +293,7 @@ parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
     memmax = 25,
-    memfrac = 0.5,
+    memfrac = 0.5 / no_cores,
     progress = 1,
     verbose = TRUE
   )

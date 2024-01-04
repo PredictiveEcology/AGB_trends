@@ -9,8 +9,8 @@
 ##   ABoVE AGB 31-year time series (1984-2014)
 
 # package installation and loading ------------------------------------------------------------
-Require::Require(c("dplyr", "ggplot2", "parallelly", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends"), upgrade = FALSE)
+Require::Require(c("dplyr", "ggplot2", "reproducible", "sf", "stringr", "terra",
+                   "PredictiveEcology/AGBtrends (>= 0.0.2)"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
@@ -25,12 +25,17 @@ paths <- list(
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
+paths$tiles <- file.path(paths$outputs, "tiles") |>
+  fs::dir_ls(regexp = "Bh", type = "directory") |>
+  sort()
 
-no_cores <- min(parallel::detectCores() / 2, 32L)
+## set the max number of cores to use for parallel computations
+options(parallelly.availableCores.custom = AGBtrends::getNumCores)
+no_cores <- AGBtrends::getNumCores()
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)
 
-file.remove(file.path(paths$terra, list.files(paths$terra)))
+file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
 
 oldTmpDir <- tempdir()
 newTmpDir <- file.path(paths$scratch, "tmp")
@@ -48,39 +53,18 @@ terraOptions(
   verbose = TRUE
 )
 
-tile_folders <- sort(fs::dir_ls("inputs/clean/tiled", regexp = "Bh", type = "directory"))
-
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
 ## aka "local" or "geographically weighted regression (GWR)"
 
-f1 <- AGBtrends::gwr(tile_folders, type = "slope", cores = length(tile_folders))
-f2 <- AGBtrends::gwr(tile_folders, type = "nsamp", cores = length(tile_folders))
+f1 <- AGBtrends::gwr(paths$tiles, type = "slope", cores = length(paths$tiles))
+f2 <- AGBtrends::gwr(paths$tiles, type = "nsamp", cores = length(paths$tiles))
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
-## TODO: why cache, not tmp dir??
-vrts <- file.path(cachePath(sim), c("AGB_slope_mosaic.vrt", "AGB_sample_size_mosaic.vrt"))
-tifs <- file.path(outputPath(sim), c("AGB_slope_mosaic.tif", "AGB_sample_size_mosaic.tif"))
+f3a <- AGBtrends::buildMosaics("slope", intervals = c(all = 1:31), paths = paths)
+f3b <- AGBtrends::buildMosaics("sample_size", intervals = c(all = 1:31), paths = paths)
 
-agb_slopes_Bh <- vapply(tile_folders, function(dsn) {
-  fs::dir_ls(dsn, regexp = "agb_slopes_Bh")
-}, character(1)) |>
-  unname()
-
-agb_sample_size_Bh <- vapply(tile_folders, function(dsn) {
-  fs::dir_ls(dsn, regexp = "agb_sample_size_Bh")
-}, character(1)) |>
-  unname()
-
-## 1.2.1) Build virtual rasters
-sf::gdal_utils(util = "buildvrt", source = agb_slopes_Bh, destination = vrts[1])
-sf::gdal_utils(util = "buildvrt", source = agb_sample_size_Bh, destination = vrts[2])
-
-## 1.2.2) Write to raster mosaics
-sf::gdal_utils(utils = "warp", source = vrts[1], destination = tifs[1])
-sf::gdal_utils(utils = "warp", source = vrts[2], destination = tifs[2])
-
-f3 <- tifs
+f3 <- c(f3a, f3b)
 
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
 
@@ -88,59 +72,16 @@ f3 <- tifs
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
 
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
-f1 <- AGBtrends::gwrt(tile_folders, type = "slope", cores = no_cores, intervals = intervals)
+f4 <- AGBtrends::gwrt(paths$tiles, type = "slope", cores = no_cores, intervals = timeint)
 
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
-f2 <- AGBtrends::gwrt(tile_folders, type = "nsamp", cores = no_cores, intervals = intervals)
+f5 <- AGBtrends::gwrt(paths$tiles, type = "nsamp", cores = no_cores, intervals = timeint)
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
-no_cores <- length(timeint)
-cl <- parallelly::makeClusterPSOCK(no_cores,
-  default_packages = c("sf", "stringr", "terra"),
-  rscript_libs = .libPaths(),
-  autoStop = TRUE
-)
-clusterExport(cl, varlist = c("tile_folders"))
-parallel::clusterEvalQ(cl, {
-  terraOptions(
-    tempdir = paths$terra,
-    memmax = 25,
-    memfrac = 0.6,
-    progress = 1,
-    verbose = TRUE
-  )
-})
-
-parLapply(cl, names(timeint), function(tp) {
-  ## 2.2.1) Build virtual rasters
-  flist <- unname(sapply(tile_folders, function(dsn) file.path(dsn, list.files(dsn, pattern = tp))))
-
-  gdalbuildvrt( ## TODO: use sf gdal utils
-    gdalfile = flist[str_detect(flist, "slope")],
-    output.vrt = file.path(terraOptions(print = FALSE)$tempdir, paste0("AGB_slope_mosaic_", tp, ".vrt"))
-  )
-
-  gdalbuildvrt( ## TODO: use sf gdal utils
-    gdalfile = flist[str_detect(flist, "sample_size")],
-    output.vrt = file.path(terraOptions(print = FALSE)$tempdir, paste0("AGB_sample_size_mosaic_", tp, ".vrt"))
-  )
-
-  ## 2.2.2) Write to raster mosaics
-  gdalwarp( ## TODO: use sf gdal utils
-    srcfile = file.path(terraOptions(print = FALSE)$tempdir, paste0("AGB_slope_mosaic_", tp, ".vrt")),
-    dstfile = file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif"))
-  )
-
-  gdalwarp( ## TODO: use sf gdal utils
-    srcfile = file.path(terraOptions(print = FALSE)$tempdir, paste0("AGB_sample_size_mosaic_", tp, ".vrt")),
-    dstfile = file.path(paths$outputs, paste0("AGB_sample_size_mosaic_", tp, ".tif"))
-  )
-
-  return(invisible(NULL))
-}) # 23 min
-
-stopCluster(cl)
+f6a <- AGBtrends::buildMosaics("slope", intervals = timeint, paths = paths)
+f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, paths = paths)
+f6 <- c(f6a, f6b)
 
 # Visual examination of results ---------------------------------------------------------------
 ## TODO: finesse and write to png
@@ -165,59 +106,8 @@ stopCluster(cl)
 # 3) Group slopes by age at time x ------------------------------------------------------------
 ##    (band argument determines reference layer/year),
 ##    effectively masking out pixels disturbed mid-time series
-no_cores <- min(parallel::detectCores() / 2, 6L)
-cl <- parallelly::makeClusterPSOCK(
-  no_cores,
-  default_packages = c("sf", "terra"),
-  rscript_libs = .libPaths(),
-  autoStop = TRUE
-)
 
-parallel::clusterExport(cl, varlist = c("tile_folders", "no_cores"), envir = environment())
-parallel::clusterEvalQ(cl, {
-  terraOptions(
-    tempdir = paths$terra,
-    memmax = 25,
-    memfrac = 0.6 / no_cores,
-    progress = 1,
-    verbose = TRUE
-  )
-})
-
-parallel::parLapply(cl, 1:6, function(i) {
-  ## 3.1) Build virtual raster of estimated stand age at time 0 (i.e. 1984)
-  gdalbuildvrt( ## TODO: use sf gdal utils
-    gdalfile = sapply(tile_folders, function(dsn) unname(file.path(dsn, list.files(dsn, pattern = "rage")))),
-    output.vrt = file.path(paths$cache, paste0("AGB_age_mosaic_t", i, ".vrt")),
-    ## !! MODIFY if doing alternative time steps is a DESIRED functionality (e.g. 10-year, etc.)
-    b = c(1, 6, 11, 16, 21, 26)[i], # time 1 = 1984 etc.
-    overwrite = TRUE
-  )
-
-  ## 3.2) Write to raster mosaic (stand age, kNN 2020)
-  gdalwarp( ## TODO: use sf gdal utils
-    srcfile = file.path(paths$cache, paste0("AGB_age_mosaic_t", i, ".vrt")),
-    dstfile = file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_t", i, ".tif")),
-    overwrite = TRUE
-  )
-
-  ## 3.3) Group into 5 discrete age classes
-  ages_from <- c(25, 50, 80, 125, 500)
-  ages_to <- c(24, 49, 79, 124, 500)
-
-  ageRast <- classify(rast(file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_t", i, ".tif"))),
-    rcl = cbind(from = ages_from, to = ages_to, becomes = 1L:5L),
-    right = FALSE, others = NA_integer_
-  )
-
-  names(ageRast) <- "ageClass"
-  levels(ageRast) <- data.frame(value = 1:5, ageClass = paste0(ages_from, "-", to = ages_to))
-  writeRaster(ageRast, file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_classes_t", i, ".tif")), overwrite = TRUE)
-
-  return(invisible(NULL))
-})
-
-parallel::stopCluster(cl)
+f7 <- AGBtrends::buildMosaics("age", intervals = timeint, paths = paths)
 
 # 4) rasterize study area by categorical zones of interest ------------------------------------
 ##   (basis of subsequent results comparison) WBI and ecozones by default
@@ -225,20 +115,21 @@ parallel::stopCluster(cl)
 # targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic
 #
 # source("modules/AGB_dataPrep/R/analysisZones.R")
-# zoi <- createAnalysisZones(st_read("outputs/WBI_studyArea.gpkg"), targetCRS, "inputs")
-# st_write(zoi, dsn="outputs/WBI_studyArea.gpkg", delete_layer = TRUE)
+# f_sA <- file.path(paths$outputs, "WBI_studyArea.gpkg")
+# zoi <- createAnalysisZones(st_read(f_sA), targetCRS, "inputs")
+# st_write(zoi, dsn = f_sA, delete_layer = TRUE)
 
-no_cores <- min(parallel::detectCores() / 2, 6L)
+no_cores <- AGBtrends::getNumCores(length(timeint))
 cl <- parallelly::makeClusterPSOCK(
   no_cores,
-  default_packages = c("sf", "terra"),
+  default_packages = c("AGBtrends", "sf", "terra"),
   rscript_libs = .libPaths(),
   autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("prepZones", "no_cores"), envir = environment())
+parallel::clusterExport(cl, varlist = c("no_cores"), envir = environment())
 parallel::clusterEvalQ(cl, terraOptions(tempdir = paths$terra, memfrac = 0.5 / no_cores))
 
-parallel::parLapply(cl, 1:6, function(i) {
+parallel::parLapply(cl, seq(length(timeint)), function(i) {
   prepZones( # zoi = zoi,
     field = "ECOZONE", ## CAN ALTER FOR ECOREGION OR ECOPROVINCE, (which I did so results on file)
     ageClass = rast(file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_classes_t", i, ".tif"))),
@@ -251,30 +142,40 @@ parallel::parLapply(cl, 1:6, function(i) {
 
 parallel::stopCluster(cl)
 
-# 5) Calculate comparative summary statistics by categorical zone of interest for all time periods -----
+# 5) Calculate comparative summary statistics by categorical ZOI for all time periods ---------
 
-## Note in following that age at beginning of the 31 year time series (1984-2014) is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
+## Note in following that age at beginning of the 31 year time series (1984-2014)
+## is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
+files <- list(
+  list.files(paths$outputs, pattern = "slope_mosaic", full.names = TRUE),
+  list.files(paths$outputs, pattern = "sample_size", full.names = TRUE),
+  list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecozone", full.names = TRUE),
+  list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoregion", full.names = TRUE),
+  list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoprovince", full.names = TRUE)
+)
+omit <- c(2, 4, 6, 8, 10, 12) ## TODO: omit aux files by grepping tifs only above
 irast <- list(
-  slope = file.path(paths$outputs, list.files(paths$outputs, pattern = "slope_mosaic")),
-  w = file.path(paths$outputs, list.files(paths$outputs, pattern = "sample_size")),
-  ## these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used for the complete time series slope raster mosaic stats assessment.
+  slope = files[[1]],
+  w = files[[2]],
+  ## these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used
+  ## for the complete time series slope raster mosaic stats assessment.
   ## this should be '1', but currently set to 6 years in b/c disturbed pixels are only known as of 1987
-  ecozone = file.path(paths$outputs, list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecozone"))[-c(2, 4, 6, 8, 10, 12)][c(1:6, 2)],
-  ecoregion = file.path(paths$outputs, list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoregion"))[-c(2, 4, 6, 8, 10, 12)][c(1:6, 2)],
-  ecoprovince = file.path(paths$outputs, list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoprovince"))[-c(2, 4, 6, 8, 10, 12)][c(1:6, 2)]
+  ecozone = files[[3]][-omit][c(1:6, 2)],
+  ecoregion = files[[4]][-omit][c(1:6, 2)],
+  ecoprovince = files[[5]][-omit][c(1:6, 2)]
 )
 
-no_cores <- length(timeint) + 1
+no_cores <- AGBtrends::getNumCores(length(timeint) + 1)
 cl <- parallelly::makeClusterPSOCK(no_cores,
-  default_packages = c("dplyr", "sf", "terra"),
+  default_packages = c("AGBtrends", "dplyr", "sf", "terra"),
   rscript_libs = .libPaths(), autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("irast", "no_cores", "zoneStats"), envir = environment())
+parallel::clusterExport(cl, varlist = c("irast", "no_cores"), envir = environment())
 parallel::clusterEvalQ(cl, terraOptions(tempdir = paths$terra, memfrac = 0.5 / no_cores))
 
 system.time({
-  parallel::parLapply(cl, 1:7, function(i, svar = "ecozone", maskRaster = NULL) {
-    ## TO DO: use maskRaster file name to qualify file.id writeRaster tag
+  parallel::parLapply(cl, seq(no_cores), function(i, svar = "ecozone", maskRaster = NULL) {
+    ## TODO: use maskRaster file name to qualify file.id writeRaster tag
     if (i == 7) {
       file.id <- paste0("WBI_", svar)
       # file.id <- paste0("WBI_distMask_", svar)
@@ -302,7 +203,9 @@ parallel::stopCluster(cl)
 
 # 6) Diagnostic plots -------------------------------------------------------------------------
 
-## Request 1: range, mode and mean of AGB values by ageClass, year 2000
+## TODO: move these to AGBtrends package
+
+## Request 1: range, mode and mean of AGB values by ageClass, year 2000 -----------------------
 
 ## 1 a) range
 
@@ -313,7 +216,6 @@ rPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", ful
 agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
 agb_mosaic_classes <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000_classes.tif")
 
-## TODO: use sf gdal utils
 sf::gdal_utils(
   util = "buildvrt",
   source = rPath,
@@ -372,11 +274,11 @@ gg_agb_agb_class <- ggplot(
 ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), gg_agb_agb_class,
        width = 7.5, height = 4)
 
-## Request 2: cumulative delta AGB by ecozone
+## Request 2: cumulative delta AGB by ecozone -------------------------------------------------
 tilePath <- list.files(file.path(paths$outputs, "tiles"), full.names = TRUE)
 agbPath <- unname(sapply(tilePath, function(x) list.files(x, pattern = "ragb", full.names = TRUE)))
 
-no_cores <- min(parallelly::availableCores(constraints = c("connections")) / 2, 20L)
+no_cores <- AGBtrends::getNumCores(20L) ## TODO: why 20 here; RAM limitations?
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("dplyr", "sf", "terra"),
   rscript_libs = .libPaths(),
@@ -516,3 +418,4 @@ gp <- plotZoneStatsIntervals(files2plot = file.path(paths$outputs, list.files(pa
 
 # cleanup -------------------------------------------------------------------------------------
 unlink(paths$terra, recursive = TRUE)
+unlink(newTmpDir, recursive = TRUE)

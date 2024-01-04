@@ -14,7 +14,8 @@
 # package installation and loading ------------------------------------------------------------
 Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(
-  c("dplyr", "ggplot2", "googledrive", "parallelly", "reproducible", "sf", "stringr", "terra"),
+  c("dplyr", "ggplot2", "googledrive", "reproducible", "sf", "stringr", "terra",
+    "PredictiveEcology/AGBtrends (>= 0.0.2)"),
   upgrade = FALSE
 )
 
@@ -32,7 +33,9 @@ paths <- list(
 )
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
 
-no_cores <- min(parallel::detectCores() / 2, 32L)
+## set the max number of cores to use for parallel computations
+options(parallelly.availableCores.custom = AGBtrends::getNumCores)
+no_cores <- AGBtrends::getNumCores()
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)
 
