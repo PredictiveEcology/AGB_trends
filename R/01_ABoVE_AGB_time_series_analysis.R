@@ -76,24 +76,42 @@ f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, paths = paths
 f6 <- c(f6a, f6b)
 
 # Visual examination of results ---------------------------------------------------------------
-## TODO: finesse and write to png
-#
-# par(mfrow = c(3, 2))
-# for(tp in names(timeint)) {
-#   plot(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif"))), main = tp)
-# }
-#
-# sapply(names(timeint), function(tp) digest::digest(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif")), algo = "xxhash64"))
-# sapply(names(timeint), function(tp) file.size(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif"))))
-#
-# ## write to PNG !!
-# par(mfrow = c(2, 3))
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t1.tif"))), main = "t1")
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t2.tif"))), main = "t2")
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t3.tif"))), main = "t3")
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t4.tif"))), main = "t4")
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t5.tif"))), main = "t5")
-# hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t6.tif"))), main = "t6")
+
+## verify hashes and file sizes
+sapply(names(timeint), function(tp) {
+  digest::digest(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif")), algo = "xxhash64")
+})
+sapply(names(timeint), function(tp) {
+  file.size(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif")))
+})
+
+## TODO: finesse these plots further
+
+plot_slope_mosaics <- function() {
+  par(mfrow = c(3, 2))
+  for (tp in names(timeint)) {
+    plot(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif"))), main = tp)
+  }
+}
+
+gg_slope_mosaics <- cowplot::plot_grid(plot_slope_mosaics)
+
+ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaics.png"), gg_slope_mosaics, height = 5, width = 10)
+
+plot_slope_mosaic_hists <- function() {
+  par(mfrow = c(2, 3))
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t1.tif"))), main = "t1")
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t2.tif"))), main = "t2")
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t3.tif"))), main = "t3")
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t4.tif"))), main = "t4")
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t5.tif"))), main = "t5")
+  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t6.tif"))), main = "t6")
+}
+
+gg_slope_mosaic_hists <- cowplot::plot_grid(plot_slope_mosaic_hists)
+
+ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaic_hists.png"),
+       gg_slope_mosaic_hists, height = 5, width = 10)
 
 # 3) Group slopes by age at time x ------------------------------------------------------------
 ##    (band argument determines reference layer/year),
