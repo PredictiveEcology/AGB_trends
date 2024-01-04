@@ -453,4 +453,3 @@ gg_76 <- plotZoneStatsIntervals(files2plot) ## TODO: why is `0-24` the ontly age
 
 # cleanup -------------------------------------------------------------------------------------
 unlink(paths$terra, recursive = TRUE)
-unlink(newTmpDir, recursive = TRUE)
