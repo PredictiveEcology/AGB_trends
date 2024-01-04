@@ -368,6 +368,8 @@ plotAll <- function(sim) {
 
   ## 7a) without disturbance mask
 
+  ## TODO: update based on the updated script
+
   ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), etc.
   png() ## TODO
   plotZoneStats(file2plot = file.path(outputPath(sim), paste0("zoneStats_summary_WBI_ecozone.rds")))
@@ -401,11 +403,6 @@ plotAll <- function(sim) {
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
-}
-
-ggplotFn <- function(data, ...) {
-  ggplot(data, aes(TheSample)) +
-    geom_histogram(...)
 }
 
 .inputObjects <- function(sim) {
