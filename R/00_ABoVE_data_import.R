@@ -211,7 +211,7 @@ provsWB <- Cache(
   fun = "sf::st_read"
 ) |>
   filter(PREABBR %in% c("B.C.", "Alta.", "Sask.", "Man.", "Y.T.", "N.W.T.", "Nvt.")) |>
-  st_cast("POLYGON")
+  st_cast("MULTIPOLYGON")
 
 ## crop WBI to western Cdn provinces and save to file
 studyArea_gpkg <- file.path(paths$outputs, "WBI_studyArea.gpkg")
