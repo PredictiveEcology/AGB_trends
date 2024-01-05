@@ -20,9 +20,9 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("README.md", "AGB_dataPrep.Rmd"), ## same file
-  reqdPkgs = list("dplyr", "geodata", "ggplot2", "ggspatial", "googledrive",
+  reqdPkgs = list("cowplot", "dplyr", "geodata", "ggplot2", "ggspatial", "googledrive", "gridGraphics",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
-                  "PredictiveEcology/AGBtrends",
+                  "PredictiveEcology/AGBtrends (>= 0.0.2)",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -183,7 +183,7 @@ downloadFromGoogleDrive <- function(sim) {
   out <- Cache(preProcess,
                url = P(sim)$urlCaNFIR,
                targetFile = "mosaic_age.tif",
-               fun = "raster::raster",
+               fun = "terra::rast",
                alsoExtract = "similar",
                destinationPath = mod$CaNFIRPath,
                #overwrite = TRUE,

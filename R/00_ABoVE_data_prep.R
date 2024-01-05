@@ -27,7 +27,6 @@ paths <- list(
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
 
 ## set the max number of cores to use for parallel computations
-options(parallelly.availableCores.custom = AGBtrends::getNumCores)
 no_cores <- AGBtrends::getNumCores()
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)

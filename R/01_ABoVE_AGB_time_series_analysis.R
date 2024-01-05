@@ -9,6 +9,7 @@
 ##   ABoVE AGB 31-year time series (1984-2014)
 
 # package installation and loading ------------------------------------------------------------
+Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(c("dplyr", "ggplot2", "reproducible", "sf", "stringr", "terra",
                    "PredictiveEcology/AGBtrends (>= 0.0.2)"), upgrade = FALSE)
 
@@ -30,7 +31,6 @@ paths$tiles <- file.path(paths$outputs, "tiles") |>
   sort()
 
 ## set the max number of cores to use for parallel computations
-options(parallelly.availableCores.custom = AGBtrends::getNumCores)
 no_cores <- AGBtrends::getNumCores()
 
 file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup

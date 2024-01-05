@@ -34,7 +34,6 @@ paths <- list(
 paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
 
 ## set the max number of cores to use for parallel computations
-options(parallelly.availableCores.custom = AGBtrends::getNumCores)
 no_cores <- AGBtrends::getNumCores()
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)
@@ -46,6 +45,9 @@ if (length(auth_json) == 0) {
 
 drive_auth(path = auth_json)
 
+## ABoVE default CRS (Canada_Albers_Equal_Area_Conic)
+targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic |> crs()
+
 # 1) download tiled ABoVE AGB rasters ---------------------------------------------------------
 agbtiles <- drive_ls(as_id("1CdJ4t_Ja0qcQgk5DIkFi8QSYQVcP9EV4"))
 
@@ -56,7 +58,7 @@ cl <- parallelly::makeClusterPSOCK(
   rscript_libs = .libPaths(),
   autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("agbtiles"))
+parallel::clusterExport(cl, varlist = c("agbtiles", "auth_json", "paths"))
 
 ## 1 b) import raster tiles -------------------------------------------------------------------
 parLapply(cl, seq(nrow(agbtiles)), function(m) {
@@ -79,7 +81,7 @@ distiles <- drive_ls(as_id("1CNalAGmw9fO0-TuMMqLt3HrMNTj6cnER"))
 
 ## 2 a) setup parallel processing (one thread per tile) ---------------------------------------
 cl <- makeCluster(no_cores)
-clusterExport(cl, varlist = c("distiles"))
+clusterExport(cl, varlist = c("distiles", "auth_json", "paths"))
 
 ## 2 b) import raster tiles -------------------------------------------------------------------
 parLapply(cl, seq(nrow(distiles)), function(m) {
@@ -96,7 +98,7 @@ parLapply(cl, seq(nrow(distiles)), function(m) {
   }))
 })
 
-stopCluster(cl)
+parallel::stopCluster(cl)
 
 # 3) download CaNFIR stand age product + supporting file types --------------------------------
 
@@ -107,7 +109,7 @@ checkPath(file.path(paths$inputs, "CaNFIR"), create = TRUE)
 preProcess(
   url = "https://drive.google.com/file/d/1Thvxc9I8d1DzE7_hMovKESaCQGuHEYKy",
   targetFile = "mosaic_age.tif",
-  fun = "raster::raster",
+  fun = "terra::rast",
   alsoExtract = "similar",
   destinationPath = file.path(paths$inputs, "CaNFIR"),
   cacheRepo = paths$cache,
@@ -117,21 +119,22 @@ preProcess(
 
 ## 4 a) Create vector polygons corresponding to ABoVE AGB raster tiles ------------------------
 dsn <- file.path(paths$inputs, "ABoVE_AGB_30m", "data")
-rfiles <- list.files(dsn, pattern = "AGB_B")
+agb_tifs <- list.files(dsn, pattern = "AGB_B")
+agb_gpkg <- file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg")
 
 ## individual tile bounding boxes
-boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(dsn, x))))))
+boxes <- do.call(rbind, lapply(agb_tifs, function(x) as.vector(ext(rast(file.path(dsn, x))))))
 
 ## wide area bounding box
 Abox <- c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)] |>
   st_bbox() |>
-  st_as_sf() |>
   st_as_sfc() |>
-  st_set_crs(rast(file.path(dsn, rfiles[1])))
+  st_as_sf() |>
+  st_set_crs(targetCRS)
 
 st_write(
   merge(Abox, data.frame(description = "ABoVE_AGB_study_area")),
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
+  dsn = agb_gpkg,
   layer = "study_area",
   driver = "GPKG", delete_layer = TRUE
 )
@@ -141,38 +144,34 @@ vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
   c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]) |>
     st_bbox() |>
     st_as_sfc() |>
-    st_as_sf(data.frame(tile_name = rfiles[m]))
+    st_as_sf(data.frame(tile_name = agb_tifs[m]))
 })) |>
-  st_set_crs(rast(file.path(dsn, rfiles[1])))
+  st_set_crs(targetCRS)
 
 st_write(
   vtiles,
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
+  dsn = agb_gpkg,
   layer = "tileset", driver = "GPKG", delete_layer = TRUE
 )
 
 ## 4 b) Create vector polygons corresponding to ABoVE disturbance history raster tiles --------
 dsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "data")
-rfiles <- list.files(dsn, pattern = ".tif")
+dstagnt_tifs <- list.files(dsn, pattern = ".tif")
+dstagnt_gpkg <- file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg")
 
 ## individual tile bounding boxes
-boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(dsn, x))))))
+boxes <- do.call(rbind, lapply(dstagnt_tifs, function(x) as.vector(ext(rast(file.path(dsn, x))))))
 
 ## wide area bounding box
 Abox <- c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)] |>
   st_bbox() |>
+  st_as_sfc() |>
   st_as_sf() |>
-  st_as_sfc()
-
-st_crs(Abox) <- st_read(
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
-  layer = "study_area"
-) |>
-  st_crs() ## identical CRS to AGB product, but mis-specified
+  st_set_crs(targetCRS)
 
 st_write(
   merge(Abox, data.frame(description = "ABoVE_ForestDisturbance_Agents_study_area")),
-  dsn = file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "ABoVE_DistAgents_study_area.gpkg"),
+  dsn = dstagnt_gpkg,
   layer = "study_area", driver = "GPKG", delete_layer = TRUE
 )
 
@@ -181,31 +180,13 @@ vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
   c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]) |>
     st_bbox() |>
     st_as_sfc() |>
-    st_as_sf(data.frame(tile_name = rfiles[m]))
-}))
+    st_as_sf(data.frame(tile_name = dstagnt_tifs[m]))
+})) |>
+  st_set_crs(targetCRS)
 
-st_crs(vtiles) <- st_read(
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
-  layer = "study_area"
-) |>
-  st_crs() ## identical CRS to AGB product, but mis-specified
-
-st_write(
-  vtiles,
-  dsn = file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "ABoVE_DistAgents_study_area.gpkg"),
-  layer = "tileset", driver = "GPKG", delete_layer = TRUE
-)
+st_write(vtiles, dsn = dstagnt_gpkg, layer = "tileset", driver = "GPKG", delete_layer = TRUE)
 
 # 5) Import WBI study area --------------------------------------------------------------------
-
-## ABoVE default CRS (Canada_Albers_Equal_Area_Conic)
-targetCRS <- st_read(
-  dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
-  layer = "study_area"
-) |>
-  st_crs()
-
-identical(targetCRS, AGBtrends::Canada_Albers_Equal_Area_Conic) ## TODO: confirm this
 
 bcrzip <- "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip"
 
@@ -222,7 +203,8 @@ bcrWB <- Cache(
 provsWB <- Cache(
   prepInputs,
   url = "https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16a_e.zip",
-  destinationPath = "cache",
+  cacheRepo = paths$cache,
+  destinationPath = paths$inputs,
   targetFile = "lpr_000b16a_e.shp",
   alsoExtract = "similar",
   targetCRS = targetCRS,
@@ -232,25 +214,26 @@ provsWB <- Cache(
   st_cast("POLYGON")
 
 ## crop WBI to western Cdn provinces and save to file
+studyArea_gpkg <- file.path(paths$outputs, "WBI_studyArea.gpkg")
 studyArea <- bcrWB |>
   st_crop(provsWB[provsWB$PREABBR != "Nvt.", ]) |>
   st_intersection(provsWB) |>
   group_by(BCR, Label) |>
   summarize() |>
-  st_write(dsn = file.path(paths$outputs, "WBI_studyArea.gpkg"), driver = "GPKG", delete_layer = TRUE)
+  st_write(dsn = studyArea_gpkg, driver = "GPKG", delete_layer = TRUE)
 
 ## OPTIONAL: Visually compare available tiles between ABoVE products and WBI study area -------
 
 ## 1) AGB tiles
-agb_sa <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "study_area")
-agb_tiles <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "tileset")
+agb_sa <- st_read(agb_gpkg, "study_area")
+agb_tiles <- st_read(agb_gpkg, "tileset")
 
 ## 2) Disturbance history tiles
-dist_sa <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "study_area")
-dist_tiles <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "tileset")
+dist_sa <- st_read(dstagnt_gpkg, "study_area")
+dist_tiles <- st_read(dstagnt_gpkg, "tileset")
 
 ## 3) WBI study area
-wbi <- st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"))
+wbi <- st_read(studyArea_gpkg)
 
 ## 4) Comparison plot
 

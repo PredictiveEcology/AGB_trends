@@ -64,7 +64,6 @@ library(Require)
 setLinuxBinaryRepo()
 
 Require(c(
-  "PredictiveEcology/AGBtrends (>= 0.0.2)",
   "PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
   "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
   "PredictiveEcology/SpaDES.tools@development"

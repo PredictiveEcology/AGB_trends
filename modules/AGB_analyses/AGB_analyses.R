@@ -15,7 +15,7 @@ defineModule(sim, list(
   timeunit = "year",
   citation = list("citation.bib"),
   documentation = list("NEWS.md", "README.md", "AGB_analyses.Rmd"),
-  reqdPkgs = list("dplyr", "gdalUtilities", "ggplot2", "ggspatial",
+  reqdPkgs = list("cowplot", "dplyr", "ggplot2", "ggspatial", "gridGraphics",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
                   "PredictiveEcology/AGBtrends (>= 0.0.2)",
                   "PredictiveEcology/reproducible@development",
@@ -174,7 +174,7 @@ groupSlopes <- function(sim) {
   timeint <- P(sim)$summaryIntervals
 browser() ## TODO: replace this chunk with AGBtrends::buildMosaics()
   cl <- parallelly::makeClusterPSOCK(ncores,
-                                     default_packages = c("terra", "gdalUtilities"),
+                                     default_packages = c("sf", "terra"),
                                      rscript_libs = .libPaths(),
                                      autoStop = TRUE)
   on.exit(stopCluster(cl), add = TRUE)
