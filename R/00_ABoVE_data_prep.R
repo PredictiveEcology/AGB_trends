@@ -182,10 +182,10 @@ parallel::clusterEvalQ(cl, {
   )
 })
 
-parallel::parLapply(cl, distfiles, function(distfile) {
-  writeRaster(any(rast(file.path(distdsn, distfile))),
+parallel::parLapply(cl, distfiles, function(f) {
+  writeRaster(any(rast(file.path(distdsn, f))),
     filename = file.path(paths$outputs, "binary_disturbed",
-                         paste0(str_sub(distfile, end = 7L), "_disturbed.tif")),
+                         paste0(str_sub(f, end = 7L), "_disturbed.tif")),
     overwrite = TRUE
   )
 })
@@ -201,6 +201,7 @@ sf::gdal_utils(
   ),
   destination = file.path(paths$terra, "binary_dist_mosaic.vrt")
 )
+
 sf::gdal_utils(
   util = "warp",
   source = file.path(paths$terra, "binary_dist_mosaic.vrt"),
@@ -235,17 +236,17 @@ sf::gdal_utils(
 ## Get metadata
 httr::GET(
   url = "https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/comp/Annual_Landcover_ABoVE.pdf",
-  write_disk(file.path(paths$inputs, "ABoVE_Landcover", "Annual_Landcover_ABoVE.pdf"), overwrite = TRUE)
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "Annual_Landcover_ABoVE.pdf"), overwrite = TRUE)
 )
 
 httr::GET(
   url = "https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/data/accuracy_assess_1984-2014.csv",
-  write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_assess_1984-2014.csv"), overwrite = TRUE)
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_assess_1984-2014.csv"), overwrite = TRUE)
 )
 
 httr::GET(
   url = "https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/data/accuracy_summary_1984-2014.csv",
-  write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_summary_1984-2014.csv"))
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_summary_1984-2014.csv"))
 )
 
 ## Download individually tiled rasters
@@ -255,11 +256,11 @@ sfiles <- paste0("https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/da
 lapply(sfiles, function(sfile) {
   httr::GET(
     url = sfile,
-    write_disk(file.path(paths$inputs, "ABoVE_Landcover", paste0("ABoVE_LandCover_", str_sub(sfile, start = -11L, end = -5L), ".tif")), overwrite = TRUE)
+    httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", paste0("ABoVE_LandCover_", str_sub(sfile, start = -11L, end = -5L), ".tif")), overwrite = TRUE)
   )
   httr::GET(
     url = sfile,
-    write_disk(file.path(paths$inputs, "ABoVE_Landcover", paste0("ABoVE_LandCover_Simplified_", str_sub(sfile, start = -11L, end = -5L), ".tif")), overwrite = TRUE)
+    httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", paste0("ABoVE_LandCover_Simplified_", str_sub(sfile, start = -11L, end = -5L), ".tif")), overwrite = TRUE)
   )
 })
 
