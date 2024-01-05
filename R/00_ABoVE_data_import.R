@@ -50,12 +50,16 @@ drive_auth(path = auth_json)
 agbtiles <- drive_ls(as_id("1CdJ4t_Ja0qcQgk5DIkFi8QSYQVcP9EV4"))
 
 ## 1 a) setup parallel processing (one thread per tile) ---------------------------------------
-cl <- makeCluster(no_cores)
-clusterExport(cl, varlist = c("agbtiles"))
+cl <- parallelly::makeClusterPSOCK(
+  no_cores,
+  default_packages = c("googledrive"),
+  rscript_libs = .libPaths(),
+  autoStop = TRUE
+)
+parallel::clusterExport(cl, varlist = c("agbtiles"))
 
 ## 1 b) import raster tiles -------------------------------------------------------------------
-parLapply(cl, 1:nrow(agbtiles), function(m) {
-  library(googledrive)
+parLapply(cl, seq(nrow(agbtiles)), function(m) {
   drive_auth(path = auth_json)
   retry(quote({
     httr::with_config(config = httr::config(http_version = 2), {
@@ -63,7 +67,7 @@ parLapply(cl, 1:nrow(agbtiles), function(m) {
         file = as_id(agbtiles[m, ]),
         path = file.path(paths$inputs, "ABoVE_AGB_30m", "data", agbtiles$name[m]),
         overwrite = TRUE
-      ) # use check files instead + check sums
+      ) ## TODO: use check files instead + check sums
     })
   }))
 })
@@ -78,7 +82,7 @@ cl <- makeCluster(no_cores)
 clusterExport(cl, varlist = c("distiles"))
 
 ## 2 b) import raster tiles -------------------------------------------------------------------
-parLapply(cl, 1:nrow(distiles), function(m) {
+parLapply(cl, seq(nrow(distiles)), function(m) {
   library(googledrive)
   drive_auth(path = auth_json)
   retry(quote({
@@ -119,8 +123,11 @@ rfiles <- list.files(dsn, pattern = "AGB_B")
 boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(dsn, x))))))
 
 ## wide area bounding box
-Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)])))
-st_crs(Abox) <- crs(rast(file.path(dsn, rfiles[1])))
+Abox <- c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)] |>
+  st_bbox() |>
+  st_as_sf() |>
+  st_as_sfc() |>
+  st_set_crs(rast(file.path(dsn, rfiles[1])))
 
 st_write(
   merge(Abox, data.frame(description = "ABoVE_AGB_study_area")),
@@ -131,10 +138,13 @@ st_write(
 
 ## append individual tiles
 vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
-  st_as_sf(st_as_sfc(st_bbox(c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]))),
-           data.frame(tile_name = rfiles[m]))
-}))
-st_crs(vtiles) <- crs(rast(file.path(dsn, rfiles[1])))
+  c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]) |>
+    st_bbox() |>
+    st_as_sfc() |>
+    st_as_sf(data.frame(tile_name = rfiles[m]))
+})) |>
+  st_set_crs(rast(file.path(dsn, rfiles[1])))
+
 st_write(
   vtiles,
   dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
@@ -149,12 +159,16 @@ rfiles <- list.files(dsn, pattern = ".tif")
 boxes <- do.call(rbind, lapply(rfiles, function(x) as.vector(ext(rast(file.path(dsn, x))))))
 
 ## wide area bounding box
-Abox <- st_as_sf(st_as_sfc(st_bbox(c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)])))
+Abox <- c(apply(boxes, 2, min)[c(1, 3)], apply(boxes, 2, max)[c(2, 4)])[c(1, 3, 2, 4)] |>
+  st_bbox() |>
+  st_as_sf() |>
+  st_as_sfc()
+
 st_crs(Abox) <- st_read(
   dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
   layer = "study_area"
 ) |>
-  st_crs() # identical CRS to AGB product, but mis-specified
+  st_crs() ## identical CRS to AGB product, but mis-specified
 
 st_write(
   merge(Abox, data.frame(description = "ABoVE_ForestDisturbance_Agents_study_area")),
@@ -164,13 +178,18 @@ st_write(
 
 ## append individual tiles
 vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
-  st_as_sf(st_as_sfc(st_bbox(c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]))), data.frame(tile_name = rfiles[m]))
+  c(boxes[m, 1], boxes[m, 3], boxes[m, 2], boxes[m, 4]) |>
+    st_bbox() |>
+    st_as_sfc() |>
+    st_as_sf(data.frame(tile_name = rfiles[m]))
 }))
+
 st_crs(vtiles) <- st_read(
   dsn = file.path(paths$inputs, "ABoVE_AGB_30m", "ABoVE_AGB_study_area.gpkg"),
   layer = "study_area"
 ) |>
-  st_crs() # identical CRS to AGB product, but mis-specified
+  st_crs() ## identical CRS to AGB product, but mis-specified
+
 st_write(
   vtiles,
   dsn = file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "ABoVE_DistAgents_study_area.gpkg"),
@@ -186,6 +205,8 @@ targetCRS <- st_read(
 ) |>
   st_crs()
 
+identical(targetCRS, AGBtrends::Canada_Albers_Equal_Area_Conic) ## TODO: confirm this
+
 bcrzip <- "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip"
 
 bcrWB <- Cache(
@@ -198,7 +219,8 @@ bcrWB <- Cache(
 ) |>
   filter(BCR %in% c(4, 6:8))
 
-provsWB <- Cache(prepInputs,
+provsWB <- Cache(
+  prepInputs,
   url = "https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/files-fichiers/2016/lpr_000b16a_e.zip",
   destinationPath = "cache",
   targetFile = "lpr_000b16a_e.shp",
@@ -207,7 +229,7 @@ provsWB <- Cache(prepInputs,
   fun = "sf::st_read"
 ) |>
   filter(PREABBR %in% c("B.C.", "Alta.", "Sask.", "Man.", "Y.T.", "N.W.T.", "Nvt.")) |>
-  st_cast(., "POLYGON")
+  st_cast("POLYGON")
 
 ## crop WBI to western Cdn provinces and save to file
 studyArea <- bcrWB |>

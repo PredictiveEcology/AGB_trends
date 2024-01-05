@@ -62,7 +62,7 @@ cl <- parallelly::makeClusterPSOCK(
   rscript_libs = .libPaths(),
   autoStop = TRUE
 )
-clusterExport(cl, varlist = c("agbdsn", "agbfiles", "distdsn", "distfiles", "tilenames"))
+parallel::clusterExport(cl, varlist = c("agbdsn", "agbfiles", "distdsn", "distfiles", "tilenames"))
 parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
