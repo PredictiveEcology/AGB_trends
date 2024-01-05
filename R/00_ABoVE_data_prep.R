@@ -32,9 +32,16 @@ no_cores <- AGBtrends::getNumCores()
 terraOptions(tempdir = paths$terra, todisk = TRUE)
 
 # 1) data import ------------------------------------------------------------------------------
+
+agb_gpkg <- file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg")
+dstagnt_gpkg <- file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg")
+studyArea_gpkg <- file.path(paths$outputs, "WBI_studyArea.gpkg")
+
+years <- 1984:2014
+
 ## 1.1) Import ABoVE product tiles ------------------------------------------------------------
-dist_tiles <- st_read(file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg"), "tileset")
-agb_tiles <- st_read(file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg"), "tileset")
+agb_tiles <- st_read(agb_gpkg, "tileset")
+dist_tiles <- st_read(dstagnt_gpkg, "tileset")
 
 ## 1.2) Index 30m ABG input rasters -----------------------------------------------------------
 agbdsn <- file.path(paths$inputs, "ABoVE_AGB_30m", "data")
@@ -45,7 +52,7 @@ distdsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "data")
 distfiles <- list.files(distdsn, pattern = ".tif")
 
 ## 1.4) Import WBI study area -----------------------------------------------------------------
-wbi <- st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"))
+wbi <- st_read(studyArea_gpkg)
 
 ## 1.5) Reduce input file selection to tiles contained within WBI study area & align filename indices
 agbfiles <- agbfiles[apply(relate(x = vect(agb_tiles), y = vect(wbi), relation = "intersects"), 1, any)]
@@ -80,7 +87,7 @@ ptime <- system.time({
 
     ## Import AGB raster tile (0 = NA)
     ragb <- rast(file.path(agbdsn, agbfiles[i]))
-    names(ragb) <- 1984:2014
+    names(ragb) <- years
 
     ## Restrict selection to available disturbance history years
     NAflag(ragb) <- 0
@@ -97,7 +104,7 @@ ptime <- system.time({
       rcl = cbind(-100, 0, NA), include.lowest = TRUE
     )
 
-    names(rage) <- 1984:2014 # 3.63 min
+    names(rage) <- years # 3.63 min
 
     ## Import disturbance history (ABoVE) & mask pixels in PRE-disturbance years
     rdist <- rast(file.path(distdsn, distfiles[i]))
@@ -113,7 +120,7 @@ ptime <- system.time({
 
     ## derive pixel- and year-specific age since disturbance
     ## (ABoVE disturbed pixels exclusively; *only possible for years 1987-2012*),
-    ageSinceDist <- rast(lapply(1984:2014, function(k) k - chid))
+    ageSinceDist <- rast(lapply(years, function(k) k - chid))
 
     ## create mask serving to identify relevant cells
     ageMask <- ifel(!is.na(ageSinceDist), 9999, NA)
@@ -147,7 +154,7 @@ ptime <- system.time({
   })
 
   stopCluster(cl)
-  file.remove(file.path(paths$terra, list.files(paths$terra)))
+  file.remove(list.files(paths$terra, full.names = TRUE))
 }) # 1.6 hours
 
 
@@ -275,7 +282,7 @@ sf::gdal_utils(
 
 ## Rasterize ecozones to fit
 ecoRast <- terra::rasterize(
-  x = st_read(file.path(paths$outputs, "WBI_studyArea.gpkg"), quiet = TRUE),
+  x = st_read(studyArea_gpkg, quiet = TRUE),
   y = rast(file.path(paths$outputs, "mosaics", "AGB_landCover_mosaic.tif")),
   field = "ECOZONE",
   filename = file.path(paths$terra, "ecoRast.tif")
@@ -312,7 +319,7 @@ system.time({
 stopCluster(cl)
 
 names(ftab) <- cats(rast(file.path(paths$terra, "ecoRast.tif")))[[1]]$ECOZONE
-ltab <- data.frame(layer = 1:31, year = 1984:2014)
+ltab <- data.frame(layer = 1:31, year = years)
 reftab <- data.frame(
   value = 1:15,
   cat = c(
