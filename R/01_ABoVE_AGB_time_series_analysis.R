@@ -11,7 +11,7 @@
 # package installation and loading ------------------------------------------------------------
 Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(c("dplyr", "ggplot2", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends (>= 0.0.2)"), upgrade = FALSE)
+                   "PredictiveEcology/AGBtrends (>= 0.0.3)"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
@@ -56,10 +56,16 @@ f2 <- AGBtrends::gwr(paths$tiles, type = "nsamp", cores = length(paths$tiles))
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
-f3a <- AGBtrends::buildMosaics("slope", intervals = timeint_all, paths = paths)
-f3b <- AGBtrends::buildMosaics("sample_size", intervals = timeint_all, paths = paths)
-
+f3a <- AGBtrends::buildMosaics("slopes", intervals = timeint_all, src = paths$tiles, dst = paths$outputs)
+f3b <- AGBtrends::buildMosaics("sample_size", intervals = timeint_all, src = paths$tiles, dst = paths$outputs)
 f3 <- c(f3a, f3b)
+
+## TODO: rebuild sample_size input tiles:
+##  Warning messages:
+##    1: In CPL_gdalbuildvrt(if (missing(source)) character(0) else source,  :
+##       GDAL Message 1: gdalbuildvrt does not support heterogeneous band data type: expected Byte, got Float32.
+##       Skipping /mnt/projects/CBM/2BT/ForProd/outputs/studyArea_WBI/tiles/Bh06v08/agb_sample_size_Bh06v08.tif
+
 
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
 
@@ -71,11 +77,17 @@ f5 <- AGBtrends::gwrt(paths$tiles, type = "nsamp", cores = no_cores, intervals =
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
-f6a <- AGBtrends::buildMosaics("slope", intervals = timeint, paths = paths)
-f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, paths = paths)
+f6a <- AGBtrends::buildMosaics("slopes", intervals = timeint, src = paths$tiles, dst = paths$outputs)
+f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, src = paths$tiles, dst = paths$outputs)
 f6 <- c(f6a, f6b)
 
-# Visual examination of results ---------------------------------------------------------------
+## TODO: rebuild sample_size input tiles:
+##  Warning messages:
+##    1: In CPL_gdalbuildvrt(if (missing(source)) character(0) else source,  :
+##       GDAL Message 1: gdalbuildvrt does not support heterogeneous band data type: expected Byte, got Float32.
+##       Skipping /mnt/projects/CBM/2BT/ForProd/outputs/studyArea_WBI/tiles/Bh06v08/agb_sample_size_Bh06v08.tif
+
+## Visual examination of results --------------------------------------------------------------
 
 ## verify hashes and file sizes
 sapply(names(timeint), function(tp) {
@@ -118,9 +130,29 @@ ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaic_hists.png"),
 ##    (band argument determines reference layer/year),
 ##    effectively masking out pixels disturbed mid-time series
 
-f7 <- AGBtrends::buildMosaics("age", intervals = timeint, paths = paths)
+f7 <- AGBtrends::buildMosaics("age", intervals = timeint, src = paths$tiles, dst = paths$outputs)
 
-# 4) rasterize study area by categorical zones of interest ------------------------------------
+# 4) Evaluate frequency distributions of forest landcover -----------------------------------
+
+ftab <- readRDS(file.path(paths$outputs, "ABoVE_LandCover_freq_tables.rds"))
+
+ftab <- do.call(rbind, lapply(1:length(ftab), function(i) {
+  return(bind_cols(
+    ecozone = cats(rast(ecoRast_tif))[[1]]$ECOZONE[i],
+    group_by(ftab[[i]], value) |>
+      summarize(count = mean(count, na.rm = TRUE)) |>
+      left_join(reftab, by = "value") |>
+      relocate(cat, .before = count)
+  ))
+}))
+
+mutate(ftab, cat2 = ifelse(value %in% c(1:4), "Forested", "Non-Forested")) |>
+  group_by(ecozone, cat2) |>
+  summarize(catCount = sum(count)) |>
+  group_by(ecozone) |>
+  summarize(pcntForestedPixels = catCount[1] / sum(catCount))
+
+# 5) rasterize study area by categorical zones of interest ------------------------------------
 ##   (basis of subsequent results comparison) WBI and ecozones by default
 
 # targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic
@@ -153,7 +185,7 @@ parallel::parLapply(cl, seq(length(timeint)), function(i) {
 
 parallel::stopCluster(cl)
 
-# 5) Calculate comparative summary statistics by categorical ZOI for all time periods ---------
+# 6) Calculate comparative summary statistics by categorical ZOI for all time periods ---------
 
 ## Note in following that age at beginning of the 31 year time series (1984-2014)
 ## is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
@@ -212,7 +244,7 @@ system.time({
 
 parallel::stopCluster(cl)
 
-# 6) Diagnostic plots -------------------------------------------------------------------------
+# 7) Diagnostic plots -------------------------------------------------------------------------
 
 ## TODO: move these to AGBtrends package
 
@@ -222,7 +254,7 @@ parallel::stopCluster(cl)
 
 ## i) make mosaic for year 2000
 
-agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE)
+agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE) ## 81 files
 
 agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
 agb_mosaic_classes <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000_classes.tif")
@@ -233,6 +265,7 @@ sf::gdal_utils(
   destination = file.path(paths$terra, "agb_2000.vrt"),
   options = c("-b", "17") ## band 17
 )
+
 sf::gdal_utils(
   util = "warp",
   source = file.path(paths$terra, "agb_2000.vrt"),
@@ -384,11 +417,11 @@ lapply(1:length(ecozones), function(i) {
          gg_ptab_ez, width = 8, height = 4)
 })
 
-# 7) Plot differences -------------------------------------------------------------------------
+# 8) Plot differences -------------------------------------------------------------------------
 
 ## TODO: use ggsave()
 
-## 7 a) without disturbance mask --------------------------------------------------------------
+## 8 a) without disturbance mask --------------------------------------------------------------
 
 ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
 gg_71 <- plotZoneStats(
@@ -431,7 +464,7 @@ ggsave(
   height = 5
 )
 
-## 7 b) with disturbance mask -----------------------------------------------------------------
+## 8 b) with disturbance mask -----------------------------------------------------------------
 gg_74 <- plotZoneStats(
   file2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_distMask_ecozone.rds")
 )
@@ -467,7 +500,7 @@ gg_76 <- plotZoneStatsIntervals(files2plot) ## TODO: why is `0-24` the ontly age
 #   gg_76
 # )
 
-# 8) Test for significant differences between groups ------------------------------------------
+# 9) Test for significant differences between groups ------------------------------------------
 
 ## TODO
 

@@ -15,7 +15,7 @@
 Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(
   c("dplyr", "ggplot2", "googledrive", "reproducible", "sf", "stringr", "terra",
-    "PredictiveEcology/AGBtrends (>= 0.0.2)"),
+    "PredictiveEcology/AGBtrends (>= 0.0.3)"),
   upgrade = FALSE
 )
 
@@ -105,7 +105,7 @@ parallel::stopCluster(cl)
 ## create destination folder if non-existent
 checkPath(file.path(paths$inputs, "CaNFIR"), create = TRUE)
 
-## authenticate w/Google Cloud
+## authenticate w/ Google Cloud
 preProcess(
   url = "https://drive.google.com/file/d/1Thvxc9I8d1DzE7_hMovKESaCQGuHEYKy",
   targetFile = "mosaic_age.tif",
@@ -117,7 +117,81 @@ preProcess(
   overwrite = TRUE
 )
 
-## 4 a) Create vector polygons corresponding to ABoVE AGB raster tiles ------------------------
+# 4) Import and pre-process ABoVE Landcover time series product (1984 - 2014) -----------------
+
+## 4a) Download ABoVE Landcover time series data and metadata ---------------------------------
+
+## Set up access to EarthData webserver (in bash)
+## Set up your ~/.netrc file as listed here:
+##   https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+cURL+And+Wget
+
+# cd ~
+# touch .netrc
+# echo "machine urs.earthdata.nasa.gov login USERNAME password PASSWORD" > .netrc
+# chmod 0600 .netrc
+# touch .urs_cookies
+
+# library(httr)
+# netrc_path <- "~/.netrc"
+# cookie_path <- "~/.urs_cookies"
+# downloaded_file_path <- "~/test"
+# set_config(config(
+#   followlocation = 1,
+#   netrc = 1,
+#   netrc_file = netrc_path,
+#   cookie = cookie_path,
+#   cookiefile = cookie_path,
+#   cookiejar = cookie_path
+# ))
+
+tileIDs <- file.path(paths$inputs, "ABoVE_AGB_30m", "data") |>
+  dir() |>
+  stringr::str_sub(start = -11L, end = -5L) |>
+  unique()
+
+url_prefix_data <- "https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/data/"
+
+## Get metadata
+httr::GET(
+  url = "https://daac.ornl.gov/daacdata/above/Annual_Landcover_ABoVE/comp/Annual_Landcover_ABoVE.pdf",
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "Annual_Landcover_ABoVE.pdf"), overwrite = TRUE)
+)
+
+httr::GET(
+  url = paste0(url_prefix_data, "accuracy_assess_1984-2014.csv"),
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_assess_1984-2014.csv"), overwrite = TRUE)
+)
+
+httr::GET(
+  url = paste0(url_prefix_data, "accuracy_summary_1984-2014.csv"),
+  httr::write_disk(file.path(paths$inputs, "ABoVE_Landcover", "accuracy_summary_1984-2014.csv"))
+)
+
+## Download individually tiled rasters
+
+lc_files <- paste0(url_prefix_data, "ABoVE_LandCover_", tileIDs, ".tif")
+lcs_files <- paste0(url_prefix_data, "ABoVE_LandCover_Simplified_", tileIDs, ".tif")
+
+lc_dir <- file.path(paths$inputs, "ABoVE_LandCover")
+lcs_dir <- file.path(paths$inputs, "ABoVE_LandCover") ## using same dir, since same dir used at url
+
+lapply(lc_files, function(f) {
+  httr::GET(
+    url = f,
+    httr::write_disk(file.path(lc_dir, basename(f)), overwrite = TRUE)
+  )
+})
+
+lapply(lcs_files, function(f) {
+  httr::GET(
+    url = f,
+    httr::write_disk(file.path(lcs_dir, basename(f)), overwrite = TRUE)
+  )
+})
+
+# 5) Create polygons from ABoVE raster tiles --------------------------------------------------
+
+## 5 a) Create vector polygons corresponding to ABoVE AGB raster tiles ------------------------
 dsn <- file.path(paths$inputs, "ABoVE_AGB_30m", "data")
 agb_tifs <- list.files(dsn, pattern = "AGB_B")
 agb_gpkg <- file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg")
@@ -154,7 +228,7 @@ st_write(
   layer = "tileset", driver = "GPKG", delete_layer = TRUE
 )
 
-## 4 b) Create vector polygons corresponding to ABoVE disturbance history raster tiles --------
+## 5 b) Create vector polygons corresponding to ABoVE disturbance history raster tiles --------
 dsn <- file.path(paths$inputs, "ABoVE_ForestDisturbance_Agents", "data")
 dstagnt_tifs <- list.files(dsn, pattern = ".tif")
 dstagnt_gpkg <- file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg")
@@ -186,7 +260,7 @@ vtiles <- do.call(rbind, lapply(1:nrow(boxes), function(m) {
 
 st_write(vtiles, dsn = dstagnt_gpkg, layer = "tileset", driver = "GPKG", delete_layer = TRUE)
 
-# 5) Import WBI study area --------------------------------------------------------------------
+# 6) Import WBI study area --------------------------------------------------------------------
 
 bcrzip <- "https://www.birdscanada.org/download/gislab/bcr_terrestrial_shape.zip"
 
@@ -220,6 +294,7 @@ studyArea <- bcrWB |>
   st_intersection(provsWB) |>
   group_by(BCR, Label) |>
   summarize() |>
+  AGBtrends::createAnalysisZones(targetCRS, paths$inputs) |>
   st_write(dsn = studyArea_gpkg, driver = "GPKG", delete_layer = TRUE)
 
 ## OPTIONAL: Visually compare available tiles between ABoVE products and WBI study area -------
