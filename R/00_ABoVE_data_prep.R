@@ -136,7 +136,13 @@ ecoRast <- terra::rasterize(
   filename = ecoRast_tif
 )
 
-no_cores <- AGBtrends::getNumCores(6L) ## TODO: why 6 here; number of ecoRast_tif levels
+ecoRast_lvls <- if (exists("ecoRast", .GlobalEnv)) {
+  cats(ecoRast)[[1]]
+} else {
+  cats(rast(ecoRast_tif))[[1]]
+}
+
+no_cores <- AGBtrends::getNumCores(nrow(ecoRast_lvls))
 cl <- parallelly::makeClusterPSOCK(no_cores,
                                    default_packages = c("terra"),
                                    rscript_libs = .libPaths(),
@@ -154,7 +160,7 @@ parallel::clusterEvalQ(cl, {
 })
 
 system.time({
-  ftab <- parLapply(cl, cats(rast(ecoRast_tif))[[1]]$value, function(ezone) {
+  ftab <- parLapply(cl, ecoRast_lvls$value, function(ezone) {
     return(freq(mask(
       rast(file.path(paths$outputs, "landcover_simplified_mosaic.tif")),
       rast(ecoRast_tif),
@@ -166,7 +172,7 @@ system.time({
 
 stopCluster(cl)
 
-names(ftab) <- cats(rast(ecoRast_tif))[[1]]$ECOZONE
+names(ftab) <- ecoRast_lvls$ECOZONE
 ltab <- data.frame(layer = 1:31, year = years)
 reftab <- data.frame(
   value = 1:15,
