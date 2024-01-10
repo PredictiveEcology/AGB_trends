@@ -11,7 +11,7 @@
 # package installation and loading ------------------------------------------------------------
 Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(c("dplyr", "ggplot2", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends (>= 0.0.3)"), upgrade = FALSE)
+                   "PredictiveEcology/AGBtrends (>= 0.0.4)"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"
@@ -51,8 +51,8 @@ timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
 ## aka "local" or "geographically weighted regression (GWR)"
 
-f1 <- AGBtrends::gwr(paths$tiles, type = "slope", cores = length(paths$tiles))
-f2 <- AGBtrends::gwr(paths$tiles, type = "nsamp", cores = length(paths$tiles))
+f1 <- AGBtrends::gwr(paths$tiles, type = "slopes", cores = length(paths$tiles))
+f2 <- AGBtrends::gwr(paths$tiles, type = "sample_size", cores = length(paths$tiles))
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
@@ -70,10 +70,10 @@ f3 <- c(f3a, f3b)
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
 
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
-f4 <- AGBtrends::gwrt(paths$tiles, type = "slope", cores = no_cores, intervals = timeint)
+f4 <- AGBtrends::gwrt(paths$tiles, type = "slopes", cores = no_cores, intervals = timeint)
 
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
-f5 <- AGBtrends::gwrt(paths$tiles, type = "nsamp", cores = no_cores, intervals = timeint)
+f5 <- AGBtrends::gwrt(paths$tiles, type = "sample_size", cores = no_cores, intervals = timeint)
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 

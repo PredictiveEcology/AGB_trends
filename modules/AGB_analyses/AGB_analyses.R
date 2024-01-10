@@ -17,7 +17,7 @@ defineModule(sim, list(
   documentation = list("NEWS.md", "README.md", "AGB_analyses.Rmd"),
   reqdPkgs = list("cowplot", "dplyr", "ggplot2", "ggspatial", "gridGraphics",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
-                  "PredictiveEcology/AGBtrends (>= 0.0.2)",
+                  "PredictiveEcology/AGBtrends (>= 0.0.4)",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -86,11 +86,11 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
     },
     geoWghtReg = {
       ## 1.1.1) Derive slope of numerical vector across a time series
-      f1 <- AGBtrends::gwr(mod$tile_folders, type = "slope", cores = P(sim)$nCores)
+      f1 <- AGBtrends::gwr(mod$tile_folders, type = "slopes", cores = P(sim)$nCores)
       # sim <- registerOutputs(sim, f1) ## TODO: enable once implement in SpaDES.core
 
       ## 1.1.2) stock number of non-NA values for subsequent weighted standard deviation
-      f2 <- AGBtrends::gwr(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores)
+      f2 <- AGBtrends::gwr(mod$tile_folders, type = "sample_size", cores = P(sim)$nCores)
       # sim <- registerOutputs(sim, f2) ## TODO: enable once implement in SpaDES.core
     },
     buildVRTs = {
@@ -98,18 +98,18 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
       scratchDir <- scratchPath(sim)
       tileDirs <- mod$tile_folders
 
-      tifs1 <- AGBtrends::buildMosaics(type = "slope", intervals = c(all = 1:31), paths = paths)
+      tifs1 <- AGBtrends::buildMosaics(type = "slopes", intervals = c(all = 1:31), paths = paths)
       tifs2 <- AGBtrends::buildMosaics(type = "sample_size", intervals = c(all = 1:31), paths = paths)
 
       # sim <- registerOutputs(sim, c(tifs1, tifs2)) ## TODO: enable once implement in SpaDES.core
     },
     slopesPerTime = {
       ## 2.1.1) calculate local slope coefficient for specified time interval
-      f1 <- AGBtrends::gwrt(mod$tile_folders, type = "slope", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      f1 <- AGBtrends::gwrt(mod$tile_folders, type = "slopes", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
       # sim <- registerOutputs(sim, f1) ## TODO: enable once implement in SpaDES.core
 
       ## 2.1.2) stock number of non-NA values for subsequent weighted standard deviation
-      f2 <- AGBtrends::gwrt(mod$tile_folders, type = "nsamp", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
+      f2 <- AGBtrends::gwrt(mod$tile_folders, type = "sample_size", cores = P(sim)$nCores, intervals = P(sim)$summaryIntervals)
       # sim <- registerOutputs(sim, f2) ## TODO: enable once implement in SpaDES.core
     },
     createMosaicRasts = {
@@ -121,7 +121,7 @@ doEvent.AGB_analyses = function(sim, eventTime, eventType) {
         tiles = mod$tile_folders
       )
 
-      f3a <- buildMosaics(type = "slope", intervals = intervals, paths = paths)
+      f3a <- buildMosaics(type = "slopes", intervals = intervals, paths = paths)
       f3b <- buildMosaics(type = "sample_size", intervals = intervals, paths = paths)
 
       # sim <- registerOutputs(sim, c(f3a, f3b)) ## TODO: enable once implement in SpaDES.core

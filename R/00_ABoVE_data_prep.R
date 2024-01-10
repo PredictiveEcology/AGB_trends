@@ -10,7 +10,7 @@
 
 # package installation and loading ------------------------------------------------------------
 Require::Require(c("dplyr", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends (>= 0.0.3)"), upgrade = FALSE)
+                   "PredictiveEcology/AGBtrends (>= 0.0.4)"), upgrade = FALSE)
 
 # global parameters for project setup ---------------------------------------------------------
 projName <- "AGB_trends"

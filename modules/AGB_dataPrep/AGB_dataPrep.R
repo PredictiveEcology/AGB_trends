@@ -8,7 +8,7 @@ defineModule(sim, list(
     "2) Create spatial reference polygons corresponding to individual ABoVE tiles.",
     "3) Estimate pixel ages from ABoVE and CanFIR data."
   ),
-  keywords = "", ## TODO
+  keywords = "", ## TODO: add keywords
   authors = c(
     person("Tyler D", "Rudolph", email = "tyler.rudolph@nrcan-rncan.gc.ca", role = c("aut")),
     person("Céline", "Boisvenue", email = "celine.boisvenue@nrcan-rncan.gc.ca", role = c("aut")),
@@ -22,7 +22,7 @@ defineModule(sim, list(
   documentation = list("README.md", "AGB_dataPrep.Rmd"), ## same file
   reqdPkgs = list("cowplot", "dplyr", "geodata", "ggplot2", "ggspatial", "googledrive", "gridGraphics",
                   "parallel", "parallelly (>= 1.33.0)", "purrr", "sf", "stringr", "terra",
-                  "PredictiveEcology/AGBtrends (>= 0.0.2)",
+                  "PredictiveEcology/AGBtrends (>= 0.0.4)",
                   "PredictiveEcology/reproducible@development",
                   "PredictiveEcology/SpaDES.core@development (>= 1.1.0.9017)"),
   parameters = bindrows(
@@ -118,7 +118,7 @@ Init <- function(sim) {
 
   mod$targetCRS <- AGBtrends::Canada_Albers_Equal_Area_Conic
 
-  ## TODO: in order to allow a user to pass a custam analysis zone,
+  ## TODO: in order to allow a user to pass a custom analysis zone,
   ## they would need to provide studyArea that is a multipolygon with
   ## a field for that custom zone.
   ## This means that we cannot assume a simple polygon here, and need to merge/union

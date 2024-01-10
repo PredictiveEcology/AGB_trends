@@ -15,7 +15,7 @@
 Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
 Require::Require(
   c("dplyr", "ggplot2", "googledrive", "reproducible", "sf", "stringr", "terra",
-    "PredictiveEcology/AGBtrends (>= 0.0.3)"),
+    "PredictiveEcology/AGBtrends (>= 0.0.4)"),
   upgrade = FALSE
 )
 
