@@ -39,6 +39,9 @@ terraOptions(tempdir = paths$terra, todisk = TRUE)
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
 timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
 
+years <- (timeint_all |> unlist() |> unname()) + 1983
+n_int <- length(timeint)
+
 # 1) data import ------------------------------------------------------------------------------
 
 agb_gpkg <- file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg")
@@ -79,7 +82,7 @@ ptime <- system.time({
 ## (according to ABoVE)
 
 no_cores <- AGBtrends::getNumCores(25L) ## TODO: why 25 here; RAM limitation?
-mempercore <- as.integer(terra::free_RAM() / 1024^2 / cores) ## TODO: propagate mempercore throughout
+mempercore <- as.integer(terra::free_RAM() / 1024^2 / no_cores) ## TODO: propogate this; find better ram detection fun
 cl <- parallelly::makeClusterPSOCK(
   no_cores,
   default_packages = c("stringr", "terra"),
@@ -123,7 +126,7 @@ tileIDs <- dir(file.path(paths$outputs, "tiles"))
 lc_src <- list.files(file.path(paths$inputs, "ABoVE_LandCover"), full.names = TRUE)
 lc_dst <- file.path(paths$outputs, "mosaics")
 
-## TODO: confirm we want simplified version
+## NOTE: we want LandCover_Simplified (10 classes instead of 15)
 f0b <- AGBtrends::buildMosaics("LandCover_Simplified", intervals = timeint_all, src = lc_src, dst = lc_dst)
 
 ## Rasterize ecozones to fit

@@ -60,7 +60,7 @@ cl <- parallelly::makeClusterPSOCK(
 )
 parallel::clusterExport(cl, varlist = c("agbtiles", "auth_json", "paths"))
 
-## 1 b) import raster tiles -------------------------------------------------------------------
+## 1 b) download raster tiles -------------------------------------------------------------------
 parLapply(cl, seq(nrow(agbtiles)), function(m) {
   drive_auth(path = auth_json)
   retry(quote({
@@ -83,7 +83,7 @@ distiles <- drive_ls(as_id("1CNalAGmw9fO0-TuMMqLt3HrMNTj6cnER"))
 cl <- makeCluster(no_cores)
 clusterExport(cl, varlist = c("distiles", "auth_json", "paths"))
 
-## 2 b) import raster tiles -------------------------------------------------------------------
+## 2 b) download raster tiles -------------------------------------------------------------------
 parLapply(cl, seq(nrow(distiles)), function(m) {
   library(googledrive)
   drive_auth(path = auth_json)

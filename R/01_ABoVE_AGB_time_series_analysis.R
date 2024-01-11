@@ -37,22 +37,25 @@ file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
 
 terraOptions(
   tempdir = paths$terra,
-  memmax = 25,
+  memmax = 50,
   memfrac = 0.8,
   progress = 1,
-  verbose = TRUE,
-  todisk = TRUE
+  verbose = TRUE#,
+  # todisk = TRUE
 )
 
 ## define time intervals (year ranges between 1984-2014)
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
 timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
 
+years <- (timeint_all |> unlist() |> unname()) + 1983
+n_int <- length(timeint)
+
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
 ## aka "local" or "geographically weighted regression (GWR)"
 
-f1 <- AGBtrends::gwr(paths$tiles, type = "slopes", cores = length(paths$tiles))
-f2 <- AGBtrends::gwr(paths$tiles, type = "sample_size", cores = length(paths$tiles))
+f1 <- AGBtrends::gwr(paths$tiles, type = "slopes", cores = no_cores)
+f2 <- AGBtrends::gwr(paths$tiles, type = "sample_size", cores = no_cores) ## ~33GB
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
@@ -162,7 +165,7 @@ mutate(ftab, cat2 = ifelse(value %in% c(1:4), "Forested", "Non-Forested")) |>
 # zoi <- createAnalysisZones(st_read(f_sA), targetCRS, "inputs")
 # st_write(zoi, dsn = f_sA, delete_layer = TRUE)
 
-no_cores <- AGBtrends::getNumCores(length(timeint))
+no_cores <- AGBtrends::getNumCores(n_int)
 cl <- parallelly::makeClusterPSOCK(
   no_cores,
   default_packages = c("AGBtrends", "sf", "terra"),
@@ -172,7 +175,7 @@ cl <- parallelly::makeClusterPSOCK(
 parallel::clusterExport(cl, varlist = c("no_cores"), envir = environment())
 parallel::clusterEvalQ(cl, terraOptions(tempdir = paths$terra, memfrac = 0.5 / no_cores))
 
-parallel::parLapply(cl, seq(length(timeint)), function(i) {
+parallel::parLapply(cl, seq(n_int), function(i) {
   prepZones( # zoi = zoi,
     field = "ECOZONE", ## CAN ALTER FOR ECOREGION OR ECOPROVINCE, (which I did so results on file)
     ageClass = rast(file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_classes_t", i, ".tif"))),
@@ -190,25 +193,25 @@ parallel::stopCluster(cl)
 ## Note in following that age at beginning of the 31 year time series (1984-2014)
 ## is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
 files <- list(
-  list.files(paths$outputs, pattern = "slope_mosaic", full.names = TRUE),
-  list.files(paths$outputs, pattern = "sample_size", full.names = TRUE),
+  list.files(file.path(paths$outputs, "mosaics"), pattern = "slopes_mosaic", full.names = TRUE),
+  list.files(file.path(paths$outputs, "mosaics"), pattern = "sample_size", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecozone", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoregion", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoprovince", full.names = TRUE)
-)
-omit <- c(2, 4, 6, 8, 10, 12) ## TODO: omit aux files by grepping tifs only above
+) |>
+  lapply(grep, pattern = "[.]tif$", value = TRUE) ## onyl tifs; not aux files
 irast <- list(
   slope = files[[1]],
   w = files[[2]],
   ## these last values '2' (below) refer to ageClass at 'time 0' (i.e. 1984) used
   ## for the complete time series slope raster mosaic stats assessment.
   ## this should be '1', but currently set to 6 years in b/c disturbed pixels are only known as of 1987
-  ecozone = files[[3]][-omit][c(1:6, 2)],
-  ecoregion = files[[4]][-omit][c(1:6, 2)],
-  ecoprovince = files[[5]][-omit][c(1:6, 2)]
+  ecozone = files[[3]][c(seq(n_int), 2)],
+  ecoregion = files[[4]][c(seq(n_int), 2)],
+  ecoprovince = files[[5]][c(seq(n_int), 2)]
 )
 
-no_cores <- AGBtrends::getNumCores(length(timeint) + 1)
+no_cores <- AGBtrends::getNumCores(n_int + 1)
 cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("AGBtrends", "dplyr", "sf", "terra"),
   rscript_libs = .libPaths(), autoStop = TRUE
@@ -263,7 +266,7 @@ sf::gdal_utils(
   util = "buildvrt",
   source = agb_tifs,
   destination = file.path(paths$terra, "agb_2000.vrt"),
-  options = c("-b", "17") ## band 17
+  options = c("-b", "17") ## band 17 ( time 1 = 1984; time 17 = 2000)
 )
 
 sf::gdal_utils(
@@ -282,7 +285,7 @@ classify(rast(agb_mosaic) * 0.01,
 
 ## ii) compute sum of AGB (in Tg) by age class (t4 = 2000)
 agbSum <- zonal(rast(agb_mosaic) * 0.09,
-  rast(file.path(paths$outputs, "mosaics", "AGB_age_mosaic_classes_t4.tif")),
+  rast(file.path(paths$outputs, "mosaics", "agb_age_mosaic_classes_t4.tif")),
   fun = "sum", na.rm = TRUE
 )
 
@@ -482,7 +485,7 @@ files2plot <- file.path(paths$outputs, "summaries") |>
 gg_75 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp",
                                 catVar = "ageClass", groupVar = "ECOZONE",
                                 ptype = 2, plotResult = FALSE) |>
-  cowplot::plot_grid(plotlist = _) ## TODO: why is `0-24` the ontly ageClass???
+  cowplot::plot_grid(plotlist = _) ## NOTE: only age class `0-24` here
 
 ggsave(
   file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
@@ -492,7 +495,7 @@ ggsave(
 files2plot = file.path(paths$outputs, "summaries") |>
   list.files(pattern = "WBI_distMask_ecozone", full.names = TRUE)
 
-gg_76 <- plotZoneStatsIntervals(files2plot) ## TODO: why is `0-24` the ontly ageClass???
+gg_76 <- plotZoneStatsIntervals(files2plot) ## NOTE: only age class `0-24` here
 
 ## TODO: verify & adjust output filename
 # ggsave(
