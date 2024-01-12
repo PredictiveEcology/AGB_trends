@@ -58,7 +58,8 @@ n_int <- length(timeint)
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
 f1 <- parallel::parLapply(cl, paths$tiles, function(d) {
   AGBtrends::gwr(d, type = "slopes", cores = 1)
-})
+}) |>
+  unlist()
 
 f2 <- parallel::parLapply(cl, paths$tiles, function(d) {
   AGBtrends::gwr(d, type = "sample_size", cores = 1) ## TODO: rerun!
