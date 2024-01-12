@@ -62,7 +62,7 @@ f1 <- parallel::parLapply(cl, paths$tiles, function(d) {
   unlist()
 
 f2 <- parallel::parLapply(cl, paths$tiles, function(d) {
-  AGBtrends::gwr(d, type = "sample_size", cores = 1) ## TODO: rerun!
+  AGBtrends::gwr(d, type = "sample_size", cores = 1)
 }) |>
   unlist()
 
@@ -77,16 +77,18 @@ f3 <- c(f3a, f3b)
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
 
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
+parallel::clusterExport(cl, c("timeint"))
 f4 <- parallel::parLapply(cl, paths$tiles, function(d) {
-  AGBtrends::gwrt(paths$tiles, type = "slopes", cores = 1, intervals = timeint)
+  AGBtrends::gwrt(d, type = "slopes", cores = 1, intervals = timeint)
 }) |>
   unlist()
 
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
 
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
+parallel::clusterExport(cl, c("timeint"))
 f5 <- parallel::parLapply(cl, paths$tiles, function(d) {
-  AGBtrends::gwrt(paths$tiles, type = "sample_size", cores = 1, intervals = timeint) ## TODO: rerun
+  AGBtrends::gwrt(d, type = "sample_size", cores = 1, intervals = timeint)
 }) |>
   unlist()
 
