@@ -119,10 +119,10 @@ f6 <- c(f6a, f6b)
 
 ## verify hashes and file sizes
 sapply(names(timeint), function(tp) {
-  digest::digest(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif")), algo = "xxhash64")
+  digest::digest(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif")), algo = "xxhash64")
 })
 sapply(names(timeint), function(tp) {
-  file.size(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif")))
+  file.size(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif")))
 })
 
 ## TODO: finesse these plots further
@@ -130,7 +130,7 @@ sapply(names(timeint), function(tp) {
 plot_slope_mosaics <- function() {
   par(mfrow = c(3, 2))
   for (tp in names(timeint)) {
-    plot(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_", tp, ".tif"))), main = tp)
+    plot(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif"))), main = tp)
   }
 }
 
@@ -141,12 +141,12 @@ ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaics.png"),
 
 plot_slope_mosaic_hists <- function() {
   par(mfrow = c(2, 3))
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t1.tif"))), main = "t1")
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t2.tif"))), main = "t2")
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t3.tif"))), main = "t3")
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t4.tif"))), main = "t4")
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t5.tif"))), main = "t5")
-  hist(rast(file.path(paths$outputs, paste0("AGB_slope_mosaic_t6.tif"))), main = "t6")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t1.tif"))), main = "t1")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t2.tif"))), main = "t2")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t3.tif"))), main = "t3")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t4.tif"))), main = "t4")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t5.tif"))), main = "t5")
+  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t6.tif"))), main = "t6")
 }
 
 gg_slope_mosaic_hists <- cowplot::plot_grid(plot_slope_mosaic_hists)
@@ -203,7 +203,7 @@ parallel::clusterEvalQ(cl, terraOptions(tempdir = paths$terra, memfrac = 0.5 / n
 parallel::parLapply(cl, seq(n_int), function(i) {
   prepZones( # zoi = zoi,
     field = "ECOZONE", ## CAN ALTER FOR ECOREGION OR ECOPROVINCE, (which I did so results on file)
-    ageClass = rast(file.path(paths$outputs, "mosaics", paste0("AGB_age_mosaic_classes_t", i, ".tif"))),
+    ageClass = rast(file.path(paths$outputs, "mosaics", paste0("agb_age_mosaic_classes_t", i, ".tif"))),
     file.id = paste0("WBI_ecozone_t", i),
     ow = TRUE
   )
