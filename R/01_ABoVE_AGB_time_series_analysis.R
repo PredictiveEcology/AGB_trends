@@ -33,16 +33,14 @@ paths$tiles <- file.path(paths$outputs, "tiles") |>
 ## set the max number of cores to use for parallel computations
 no_cores <- AGBtrends::getNumCores()
 
-file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
-
-terraOptions(
-  tempdir = paths$terra,
-  memmax = 50,
-  memfrac = 0.8,
-  progress = 1,
-  verbose = TRUE#,
-  # todisk = TRUE
+cl <- parallelly::makeClusterPSOCK(
+  no_cores,
+  default_packages = c("AGBtrends", "terra"),
+  rscript_libs = .libPaths(),
+  autoStop = TRUE
 )
+
+file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
 
 ## define time intervals (year ranges between 1984-2014)
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
@@ -54,8 +52,14 @@ n_int <- length(timeint)
 ## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
 ## aka "local" or "geographically weighted regression (GWR)"
 
-f1 <- AGBtrends::gwr(paths$tiles, type = "slopes", cores = no_cores)
-f2 <- AGBtrends::gwr(paths$tiles, type = "sample_size", cores = no_cores) ## ~33GB
+## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
+f1 <- parallel::parLapply(cl, paths$tiles, function(d) {
+  # f1a <- AGBtrends::gwr(d, type = "slopes", cores = 1)
+  f1b <- AGBtrends::gwr(d, type = "sample_size", cores = 1) ## TODO: rerun!
+
+  return(c(f1a, f1b))
+}) |>
+  unlist()
 
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
@@ -63,20 +67,23 @@ f3a <- AGBtrends::buildMosaics("slopes", intervals = timeint_all, src = paths$ti
 f3b <- AGBtrends::buildMosaics("sample_size", intervals = timeint_all, src = paths$tiles, dst = paths$outputs)
 f3 <- c(f3a, f3b)
 
-## TODO: rebuild sample_size input tiles:
-##  Warning messages:
-##    1: In CPL_gdalbuildvrt(if (missing(source)) character(0) else source,  :
-##       GDAL Message 1: gdalbuildvrt does not support heterogeneous band data type: expected Byte, got Float32.
-##       Skipping /mnt/projects/CBM/2BT/ForProd/outputs/studyArea_WBI/tiles/Bh06v08/agb_sample_size_Bh06v08.tif
-
-
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
 
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
-f4 <- AGBtrends::gwrt(paths$tiles, type = "slopes", cores = no_cores, intervals = timeint)
+
+## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
+f4 <- parallel::parLapply(cl, paths$tiles, function(d) {
+  AGBtrends::gwrt(paths$tiles, type = "slopes", cores = 1, intervals = timeint)
+}) |>
+  unlist()
 
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
-f5 <- AGBtrends::gwrt(paths$tiles, type = "sample_size", cores = no_cores, intervals = timeint)
+
+## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
+f5 <- parallel::parLapply(cl, paths$tiles, function(d) {
+  AGBtrends::gwrt(paths$tiles, type = "sample_size", cores = 1, intervals = timeint) ## TODO: rerun
+}) |>
+  unlist()
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
