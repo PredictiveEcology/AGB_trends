@@ -31,7 +31,10 @@ paths$tiles <- file.path(paths$outputs, "tiles") |>
   sort()
 
 ## set the max number of cores to use for parallel computations
-no_cores <- AGBtrends::getNumCores()
+no_cores <- min(
+  as.integer(terra::free_RAM() / 1024^2 / 34), ## ~34 GB per thread
+  AGBtrends::getNumCores()
+)
 
 cl <- parallelly::makeClusterPSOCK(
   no_cores,
