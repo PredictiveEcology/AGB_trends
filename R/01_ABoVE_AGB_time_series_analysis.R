@@ -115,12 +115,6 @@ f6a <- AGBtrends::buildMosaics("slopes", intervals = timeint, src = paths$tiles,
 f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, src = paths$tiles, dst = paths$outputs)
 f6 <- c(f6a, f6b)
 
-## TODO: rebuild sample_size input tiles:
-##  Warning messages:
-##    1: In CPL_gdalbuildvrt(if (missing(source)) character(0) else source,  :
-##       GDAL Message 1: gdalbuildvrt does not support heterogeneous band data type: expected Byte, got Float32.
-##       Skipping /mnt/projects/CBM/2BT/ForProd/outputs/studyArea_WBI/tiles/Bh06v08/agb_sample_size_Bh06v08.tif
-
 ## Visual examination of results --------------------------------------------------------------
 
 ## verify hashes and file sizes
