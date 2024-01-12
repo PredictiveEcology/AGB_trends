@@ -30,6 +30,18 @@ paths$tiles <- file.path(paths$outputs, "tiles") |>
   fs::dir_ls(regexp = "Bh", type = "directory") |>
   sort()
 
+file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
+
+## define time intervals (year ranges between 1984-2014)
+timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
+timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
+
+years <- (timeint_all |> unlist() |> unname()) + 1983
+n_int <- length(timeint)
+
+## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
+## aka "local" or "geographically weighted regression (GWR)"
+
 ## set the max number of cores to use for parallel computations
 no_cores <- min(
   as.integer(terra::free_RAM() / 1024^2 / 34), ## ~34 GB per thread
@@ -43,18 +55,6 @@ cl <- parallelly::makeClusterPSOCK(
   autoStop = TRUE
 )
 
-file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
-
-## define time intervals (year ranges between 1984-2014)
-timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
-timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
-
-years <- (timeint_all |> unlist() |> unname()) + 1983
-n_int <- length(timeint)
-
-## 1.1) Estimate cell-wise linear regression coefficients for undisrupted time series ---------
-## aka "local" or "geographically weighted regression (GWR)"
-
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
 f1 <- parallel::parLapply(cl, paths$tiles, function(d) {
   AGBtrends::gwr(d, type = "slopes", cores = 1)
@@ -66,6 +66,8 @@ f2 <- parallel::parLapply(cl, paths$tiles, function(d) {
 }) |>
   unlist()
 
+parallel::stopCluster(cl)
+
 ## 1.2) Combine tiled slope rasters into unified mosaics --------------------------------------
 
 f3a <- AGBtrends::buildMosaics("slopes", intervals = timeint_all, src = paths$tiles, dst = paths$outputs)
@@ -74,10 +76,24 @@ f3 <- c(f3a, f3b)
 
 ## 2.1) Calculate cell-specific slopes per 5-year time interval (n=6) -------------------------
 
+## set the max number of cores to use for parallel computations
+no_cores <- min(
+  as.integer(terra::free_RAM() / 1024^2 / 15), ## <15 GB per thread
+  AGBtrends::getNumCores()
+)
+
+cl <- parallelly::makeClusterPSOCK(
+  no_cores,
+  default_packages = c("AGBtrends", "terra"),
+  rscript_libs = .libPaths(),
+  autoStop = TRUE
+)
+
+parallel::clusterExport(cl, c("timeint"))
+
 ### 2.1.1) calculate local slope coefficient for specified time interval ----------------------
 
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
-parallel::clusterExport(cl, c("timeint"))
 f4 <- parallel::parLapply(cl, paths$tiles, function(d) {
   AGBtrends::gwrt(d, type = "slopes", cores = 1, intervals = timeint)
 }) |>
@@ -86,11 +102,12 @@ f4 <- parallel::parLapply(cl, paths$tiles, function(d) {
 ### 2.1.2) stock number of non-NA values for subsequent weighted standard deviation -----------
 
 ## TODO: currently more efficient to parallize across tiles rather than using app(); rework pkg funs
-parallel::clusterExport(cl, c("timeint"))
 f5 <- parallel::parLapply(cl, paths$tiles, function(d) {
   AGBtrends::gwrt(d, type = "sample_size", cores = 1, intervals = timeint)
 }) |>
   unlist()
+
+parallel::stopCluster(cl)
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
