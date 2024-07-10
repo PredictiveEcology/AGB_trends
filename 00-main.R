@@ -1,13 +1,11 @@
 # project basics ------------------------------------------------------------------------------
 
 if (file.exists("~/.Renviron")) readRenviron("~/.Renviron") ## GITHUB_PAT
-if (file.exists("BC_HRV.Renviron")) readRenviron("BC_HRV.Renviron") ## database credentials
+if (file.exists("AGB_trends.Renviron")) readRenviron("AGB_trends.Renviron") ## database credentials
 
 .ncores <- min(parallel::detectCores() / 2, 32L)
 .nodename <- Sys.info()[["nodename"]]
 .user <- Sys.info()[["user"]]
-
-######
 
 if (exists(".mode", .GlobalEnv)) {
   stopifnot(.mode %in% c("development", "testing", "production"))
@@ -15,73 +13,30 @@ if (exists(".mode", .GlobalEnv)) {
   .mode <- "development"
 }
 
-#####
+## packages, paths and options --------------------------------------------------------------------------
 
-prjDir <- switch(.user,
-                 achubaty  = "~/GitHub/AGB_trends",
-                 trudolph = "~/GitHub/AGB_trends",
-                 "~/GitHub/AGB_trends")
+library(data.table)
+library(plyr)
+library(pryr)
+library(googledrive)
+library(httr)
+library(sf)
+library(terra)
 
-stopifnot(identical(normalizePath(prjDir), getwd())) ## ensure we're working in the project directory
+library(reproducible)
+library(SpaDES.config)
+library(SpaDES.core)
 
-## set new temp dir in scratch directory (existing /tmp too small for large callr ops)
-## see https://github.com/r-lib/callr/issues/172
-if (grepl("for-cast[.]ca", .nodename) && !grepl("larix", .nodename)) {
-  oldTmpDir <- tempdir()
-  newTmpDir <- file.path("/mnt/scratch", .user, basename(prjDir), "tmp")
-  if (!dir.exists(newTmpDir)) dir.create(newTmpDir, recursive = TRUE)
-  newTmpDir <- tools::file_path_as_absolute(newTmpDir)
-  Sys.setenv(TMPDIR = newTmpDir)
-  unlink(oldTmpDir, recursive = TRUE)
-  tempdir(check = TRUE)
-}
+prjDir <- SpaDES.config::findProjectPath()
+
+stopifnot(identical(prjDir, getwd()))
 
 options(
   Ncpus = .ncores,
   repos = c(CRAN = "https://cloud.r-project.org")
 )
 
-# install and load packages -------------------------------------------------------------------
-
-pkgDir <- file.path(tools::R_user_dir(basename(prjDir), "data"), "packages",
-                    version$platform, getRversion()[, 1:2])
-dir.create(pkgDir, recursive = TRUE, showWarnings = FALSE)
-.libPaths(pkgDir, include.site = FALSE)
-message("Using libPaths:\n", paste(.libPaths(), collapse = "\n"))
-
-if (!"remotes" %in% rownames(installed.packages(lib.loc = .libPaths()[1]))) {
-  install.packages("remotes")
-}
-
-Require.version <- "PredictiveEcology/Require@v0.3.1" ## use CRAN version
-if (!"Require" %in% rownames(installed.packages(lib.loc = .libPaths()[1])) ||
-    packageVersion("Require", lib.loc = .libPaths()[1]) != "0.3.1") {
-  remotes::install_github(Require.version)
-}
-
-library(Require)
-
-setLinuxBinaryRepo()
-
-Require(c(
-  "PredictiveEcology/SpaDES.project@transition (>= 0.0.7.9003)", ## TODO: use development once merged
-  "PredictiveEcology/SpaDES.config@development (>= 0.0.2.9050)",
-  "PredictiveEcology/SpaDES.tools@development"
-), standAlone = TRUE, upgrade = FALSE)
-
-modulePkgs <- unname(unlist(packagesInModules(modulePath = file.path(prjDir, "modules"))))
-otherPkgs <- c(
-  "archive", "details", "DBI", "s-u/fastshp", "httpuv", "logging", "RPostgres", "RSQLite"
-)
-
-Install(unique(c(modulePkgs, otherPkgs)), standAlone = TRUE, upgrade = FALSE)
-
-## NOTE: always load packages LAST, after installation above;
-##       ensure plyr loaded before dplyr or there will be problems
-Require(c("plyr", "dplyr",
-          "data.table", "googledrive", "httr", "pryr", "sessioninfo", "sf", "terra",
-          "SpaDES.core"),
-        standAlone = TRUE, upgrade = FALSE)
+workflowtools::check_project_packages(prjDir)
 
 # configure project ---------------------------------------------------------------------------
 
@@ -103,22 +58,7 @@ prjPaths <- list(
   inputPath = "inputs",
   modulePath = "modules",
   outputPath = "outputs",
-  scratchPath = if (.user == "achubaty") {
-    if (.nodename == "larix.for-cast.ca") {
-      file.path(tempdir(), "scratch", basename(prjDir))
-    } else {
-      file.path("/mnt/scratch", .user, basename(prjDir))
-    }
-  } else if (.user == "trudolph") {
-    if (grepl("for-cast[.]ca", .nodename)) {
-      file.path("/mnt/scratch", .user, basename(prjDir))
-    } else {
-      "scratch"
-    }
-  } else {
-    ## default for unknown user
-    file.path(tempdir(), "scratch", baseName(prjDir))
-  }
+  scratchPath = file.path(tempdir(), "scratch", basename(prjDir))
 )
 prjPaths$rasterPath <- checkPath(file.path(prjPaths$scratchPath, "raster"), create = TRUE)
 prjPaths$terraPath <- checkPath(file.path(prjPaths$scratchPath, "terra"), create = TRUE)
@@ -202,17 +142,17 @@ myStudyArea <- switch(
 mySim <- simInitAndSpades(
   times = list(start = 0, end = 1),
   params = list(
-    AGB_dataPrep = list(
+    .GlobalEnv = list(
       analysisZonesType = "ecozone",
       .plots = c("screen", "png", "raw"),
-      .studyAreaName = if (.mode == "production") "WBI" else "test",
+      .studyAreaName = ifelse(.mode == "production", "WBI", "test"),
       .useParallel = TRUE
     ),
+    AGB_dataPrep = list(
+      ## TODO
+    ),
     AGB_analyses = list(
-      analysisZonesType = "ecozone",
-      .plots = c("screen", "png", "raw"),
-      .studyAreaName = if (.mode == "production") "WBI" else "test",
-      .useParallel = TRUE
+      ## TODO
     )
   ),
   objects = list(

@@ -17,4 +17,4 @@ StripTrailingWhitespace: Yes
 
 UseNativePipeOperator: Yes
 
-QuitChildProcessesOnExit: Yes
+SpellingDictionary: en_CA

@@ -1,7 +1,7 @@
 ---
 title: "AGB_analyses Manual"
 subtitle: "v.0.0.1"
-date: "Last updated: 2023-06-20"
+date: "Last updated: 2024-07-09"
 output:
   bookdown::html_document2:
     toc: true
@@ -30,7 +30,7 @@ always_allow_html: true
 
 #### Authors:
 
-Tyler D Rudolph <tyler.rudolph@nrcan-rncan.gc.ca> [aut, cre], Alex M Chubaty <achubaty@for-cast.ca> [ctb]
+Tyler D Rudolph <tyler.rudolph@nrcan-rncan.gc.ca> [aut], Céline Boisvenue <celine.boisvenue@nrcan-rncan.gc.ca> [aut], Alex M Chubaty <achubaty@for-cast.ca> [aut, cre]
 <!-- ideally separate authors with new lines, '\n' not working -->
 
 ## Module Overview
@@ -48,8 +48,8 @@ Describe input data required by the module and how to obtain it (e.g., directly 
 If `sourceURL` is specified, `downloadData("AGB_analyses", "..")` may be sufficient.
 Table \@ref(tab:moduleInputs-AGB-analyses) shows the full list of module inputs.
 
-<table class="table" style="margin-left: auto; margin-right: auto;">
-<caption>(\#tab:moduleInputs-AGB-analyses)List of (ref:AGB-analyses) input objects and their description.</caption>
+<table class="table" style="color: black; margin-left: auto; margin-right: auto;">
+<caption>(\#tab:moduleInputs-AGB-analyses)(\#tab:moduleInputs-AGB-analyses)List of (ref:AGB-analyses) input objects and their description.</caption>
  <thead>
   <tr>
    <th style="text-align:left;"> objectName </th>
@@ -77,8 +77,8 @@ Table \@ref(tab:moduleInputs-AGB-analyses) shows the full list of module inputs.
 Provide a summary of user-visible parameters (Table \@ref(tab:moduleParams-AGB-analyses))
 
 
-<table class="table" style="margin-left: auto; margin-right: auto;">
-<caption>(\#tab:moduleParams-AGB-analyses)List of (ref:AGB-analyses) parameters and their description.</caption>
+<table class="table" style="color: black; margin-left: auto; margin-right: auto;">
+<caption>(\#tab:moduleParams-AGB-analyses)(\#tab:moduleParams-AGB-analyses)List of (ref:AGB-analyses) parameters and their description.</caption>
  <thead>
   <tr>
    <th style="text-align:left;"> paramName </th>
@@ -205,8 +205,8 @@ Write what is saved.
 
 Description of the module outputs (Table \@ref(tab:moduleOutputs-AGB-analyses)).
 
-<table class="table" style="margin-left: auto; margin-right: auto;">
-<caption>(\#tab:moduleOutputs-AGB-analyses)List of (ref:AGB-analyses) outputs and their description.</caption>
+<table class="table" style="color: black; margin-left: auto; margin-right: auto;">
+<caption>(\#tab:moduleOutputs-AGB-analyses)(\#tab:moduleOutputs-AGB-analyses)List of (ref:AGB-analyses) outputs and their description.</caption>
  <thead>
   <tr>
    <th style="text-align:left;"> objectName </th>
