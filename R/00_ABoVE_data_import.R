@@ -11,21 +11,24 @@
 ##   3) Import CaNFIR kNN stand age estimation (2020)
 ##   4) Create spatial reference polygons corresponding to individual ABoVE tiles
 
-# package installation and loading ------------------------------------------------------------
-Require::Install(c("cowplot", "gridGraphics"), upgrade = FALSE)
-Require::Require(
-  c("dplyr", "ggplot2", "googledrive", "reproducible", "sf", "stringr", "terra",
-    "PredictiveEcology/AGBtrends (>= 0.0.4)"),
-  upgrade = FALSE
-)
+# packages ------------------------------------------------------------------------------------
+library(dplyr)
+library(ggplot2)
+library(googledrive)
+library(reproducible)
+library(sf)
+library(stringr)
+library(terra)
+
+library(AGBtrends)
 
 # global parameters for project setup ---------------------------------------------------------
-projName <- "AGB_trends"
+projName <- workflowtools::findProjectName()
 studyAreaName <- "studyArea_WBI"
 user <- Sys.info()[["user"]]
 
 paths <- list(
-  project = getwd(),
+  project = workflowtools::findProjectPath(),
   cache = "cache",
   inputs = "inputs",
   outputs = file.path("outputs", studyAreaName),

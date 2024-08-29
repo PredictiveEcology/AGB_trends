@@ -8,17 +8,22 @@
 ##   Estimate cell-specific stand age for raster tiles from the ABoVE AGB time series
 ##   using a combination of ABoVE Disturbance Agents and the CaNFIR stand age mosaic (kNN 2020)
 
-# package installation and loading ------------------------------------------------------------
-Require::Require(c("dplyr", "reproducible", "sf", "stringr", "terra",
-                   "PredictiveEcology/AGBtrends (>= 0.0.4)"), upgrade = FALSE)
+# packages ------------------------------------------------------------------------------------
+library(dplyr)
+library(reproducible)
+library(sf)
+library(stringr)
+library(terra)
+
+library(AGBtrends)
 
 # global parameters for project setup ---------------------------------------------------------
-projName <- "AGB_trends"
+projName <- workflowtools::findProjectName()
 studyAreaName <- "studyArea_WBI"
 user <- Sys.info()[["user"]]
 
 paths <- list(
-  project = getwd(),
+  project = workflowtools::findProjectPath(),
   cache = "cache",
   inputs = "inputs",
   outputs = file.path("outputs", studyAreaName),
