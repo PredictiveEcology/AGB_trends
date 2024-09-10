@@ -53,8 +53,6 @@ agb_gpkg <- file.path(paths$outputs, "ABoVE_AGB_study_area.gpkg")
 dstagnt_gpkg <- file.path(paths$outputs, "ABoVE_DistAgents_study_area.gpkg")
 studyArea_gpkg <- file.path(paths$outputs, "WBI_studyArea.gpkg")
 
-years <- 1984:2014
-
 ## 1.1) Import ABoVE product tiles ------------------------------------------------------------
 agb_tiles <- st_read(agb_gpkg, "tileset")
 dist_tiles <- st_read(dstagnt_gpkg, "tileset")
@@ -80,7 +78,8 @@ distfiles <- distfiles[match(basename(tilenames), str_sub(basename(distfiles), e
 
 ptime <- system.time({
   age_mosaic <- file.path(paths$inputs, "CaNFIR", "mosaic_age.tif")
-  outfiles <- AGBtrends::ABovE_CaNFIR_standAge(agbfiles, distfiles, age_mosaic, tilenames) ## TODO: test
+  outfiles <- AGBtrends::ABovE_CaNFIR_standAge(agbfiles, distfiles, age_mosaic, tilenames, years) ## TODO: test
+  file.remove(list.files(paths$terra, full.names = TRUE))
 }) # 1.6 hours
 
 ## Create mask limiting input values to cells disturbed during time series --------------------

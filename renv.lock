@@ -19,13 +19,13 @@
   "Packages": {
     "AGBtrends": {
       "Package": "AGBtrends",
-      "Version": "0.0.4",
+      "Version": "0.0.5",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteUsername": "PredictiveEcology",
       "RemoteRepo": "AGBtrends",
       "RemoteRef": "HEAD",
-      "RemoteSha": "227a6865e7796345fccdff0d25fc54d82d333b9a",
+      "RemoteSha": "24d295d9788912e7f4fe19cdd758e1c4924ae139",
       "RemoteHost": "api.github.com",
       "Remotes": "PredictiveEcology/reproducible@development, PredictiveEcology/SpaDES.tools@development",
       "Requirements": [
@@ -42,7 +42,7 @@
         "tools",
         "utils"
       ],
-      "Hash": "05f88c02db19e7f5e83b7d12b6e9fa4f"
+      "Hash": "a859ce0ed56823cb1a7bd05b7aeff0c2"
     },
     "BH": {
       "Package": "BH",
@@ -62,16 +62,67 @@
       ],
       "Hash": "065ae649b05f1ff66bb0c793107508f5"
     },
+    "Deriv": {
+      "Package": "Deriv",
+      "Version": "4.1.3",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "methods"
+      ],
+      "Hash": "bc727aba82bcda74db0bbe188ec6757c"
+    },
     "KernSmooth": {
       "Package": "KernSmooth",
       "Version": "2.23-24",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "stats"
       ],
       "Hash": "9f33a1ee37bbe8919eb2ec4b9f2473a5"
+    },
+    "LandR": {
+      "Package": "LandR",
+      "Version": "1.1.5.9018",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "PredictiveEcology",
+      "RemoteRepo": "LandR",
+      "RemoteRef": "development",
+      "RemoteSha": "ff6378a73e5f9c5c342f7f52116a24408a8f1b25",
+      "Remotes": "CeresBarros/biomod2@dev_currentCeres, RNCan/BioSimClient_R, PredictiveEcology/map@development, PredictiveEcology/pemisc@development, PredictiveEcology/quickPlot@development, PredictiveEcology/reproducible@development, PredictiveEcology/SpaDES.core@development, PredictiveEcology/SpaDES.tools@development",
+      "Requirements": [
+        "MuMIn",
+        "R",
+        "RColorBrewer",
+        "SpaDES.tools",
+        "crayon",
+        "data.table",
+        "fpCompare",
+        "ggplot2",
+        "ggpubr",
+        "ggspatial",
+        "grDevices",
+        "lme4",
+        "methods",
+        "parallel",
+        "pemisc",
+        "quickPlot",
+        "raster",
+        "reproducible",
+        "sf",
+        "sp",
+        "stats",
+        "terra",
+        "tidyterra",
+        "tools",
+        "utils",
+        "viridis"
+      ],
+      "Hash": "033a3b1a3fd1de985bc1ad2642e216ac"
     },
     "MASS": {
       "Package": "MASS",
@@ -104,6 +155,36 @@
         "utils"
       ],
       "Hash": "8c7115cd3a0e048bda2a7cd110549f7a"
+    },
+    "MatrixModels": {
+      "Package": "MatrixModels",
+      "Version": "0.5-3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "Matrix",
+        "R",
+        "methods",
+        "stats"
+      ],
+      "Hash": "0776bf7526869e0286b0463cb72fb211"
+    },
+    "MuMIn": {
+      "Package": "MuMIn",
+      "Version": "1.48.4",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "Matrix",
+        "R",
+        "graphics",
+        "insight",
+        "methods",
+        "nlme",
+        "stats",
+        "stats4"
+      ],
+      "Hash": "fc0fe47d44d1f6756ff7898f58d656d9"
     },
     "R.methodsS3": {
       "Package": "R.methodsS3",
@@ -158,7 +239,7 @@
       "Package": "RApiSerialize",
       "Version": "0.1.3",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Hash": "12cbd319d03b55edaa195695a155bb30"
     },
     "RColorBrewer": {
@@ -171,11 +252,23 @@
       ],
       "Hash": "45f0398006e83a5b10b72a90663d8d8c"
     },
+    "RCurl": {
+      "Package": "RCurl",
+      "Version": "1.98-1.16",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "bitops",
+        "methods"
+      ],
+      "Hash": "ddbdf53d15b47be4407ede6914f56fbb"
+    },
     "RPostgres": {
       "Package": "RPostgres",
       "Version": "1.4.7",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "DBI",
         "R",
@@ -194,7 +287,7 @@
       "Package": "RSQLite",
       "Version": "2.3.7",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "DBI",
         "R",
@@ -220,11 +313,38 @@
       ],
       "Hash": "5ea2700d21e038ace58269ecdbeb9ec0"
     },
+    "RcppArmadillo": {
+      "Package": "RcppArmadillo",
+      "Version": "14.0.0-1",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "a711769be34214addf7805278b72d56b"
+    },
+    "RcppEigen": {
+      "Package": "RcppEigen",
+      "Version": "0.3.4.0.2",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "stats",
+        "utils"
+      ],
+      "Hash": "4ac8e423216b8b70cb9653d1b3f71eb9"
+    },
     "RcppParallel": {
       "Package": "RcppParallel",
       "Version": "5.1.8",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R"
       ],
@@ -355,6 +475,60 @@
       ],
       "Hash": "4e6181a41334c688c89b94fcd8ac8407"
     },
+    "SparseM": {
+      "Package": "SparseM",
+      "Version": "1.84-2",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "graphics",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "e78499cbcbbca98200254bd171379165"
+    },
+    "abind": {
+      "Package": "abind",
+      "Version": "1.4-5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "methods",
+        "utils"
+      ],
+      "Hash": "4f57884290cc75ab22f4af9e9d4ca862"
+    },
+    "amc": {
+      "Package": "amc",
+      "Version": "1.0.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "achubaty",
+      "RemoteRepo": "amc",
+      "RemoteRef": "development",
+      "RemoteSha": "a3b52f4c79894fd58a838a4a1ab6515fb34918a9",
+      "Requirements": [
+        "R",
+        "base64enc",
+        "data.table",
+        "digest",
+        "dismo",
+        "httr",
+        "methods",
+        "raster",
+        "reproducible",
+        "sf",
+        "sp",
+        "terra",
+        "tools",
+        "utils"
+      ],
+      "Hash": "b763bed7117f9dd7b890bf417cbdb8b3"
+    },
     "archive": {
       "Package": "archive",
       "Version": "1.1.8",
@@ -423,6 +597,13 @@
       ],
       "Hash": "9fe98599ca456d6552421db0d6772d8f"
     },
+    "bitops": {
+      "Package": "bitops",
+      "Version": "1.0-8",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Hash": "da69e6b6f8feebec0827205aad3fdbd8"
+    },
     "blob": {
       "Package": "blob",
       "Version": "1.2.4",
@@ -439,7 +620,7 @@
       "Package": "bookdown",
       "Version": "0.40",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "htmltools",
@@ -474,6 +655,26 @@
       ],
       "Hash": "c1ee497a6d999947c2c224ae46799b1a"
     },
+    "broom": {
+      "Package": "broom",
+      "Version": "1.0.6",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "backports",
+        "dplyr",
+        "generics",
+        "glue",
+        "lifecycle",
+        "purrr",
+        "rlang",
+        "stringr",
+        "tibble",
+        "tidyr"
+      ],
+      "Hash": "a4652c36d1f8abfc3ddf4774f768c934"
+    },
     "bslib": {
       "Package": "bslib",
       "Version": "0.7.0",
@@ -500,7 +701,7 @@
       "Package": "cachem",
       "Version": "1.1.0",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "fastmap",
         "rlang"
@@ -519,6 +720,40 @@
         "utils"
       ],
       "Hash": "d7e13f49c19103ece9e58ad2d83a7354"
+    },
+    "car": {
+      "Package": "car",
+      "Version": "3.1-2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "R",
+        "abind",
+        "carData",
+        "grDevices",
+        "graphics",
+        "lme4",
+        "mgcv",
+        "nlme",
+        "nnet",
+        "pbkrtest",
+        "quantreg",
+        "scales",
+        "stats",
+        "utils"
+      ],
+      "Hash": "839b351f31d56e0147439eb22c00a66a"
+    },
+    "carData": {
+      "Package": "carData",
+      "Version": "3.0-5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "ac6cdb8552c61bd36b0e54d07cf2aab7"
     },
     "checkmate": {
       "Package": "checkmate",
@@ -565,7 +800,7 @@
       "Package": "cli",
       "Version": "3.6.3",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "utils"
@@ -619,6 +854,13 @@
         "stats"
       ],
       "Hash": "f20c47fd52fae58b4e377c37bb8c335b"
+    },
+    "corrplot": {
+      "Package": "corrplot",
+      "Version": "0.94",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Hash": "b575018abd67c252491ffce5ecb94630"
     },
     "cowplot": {
       "Package": "cowplot",
@@ -755,6 +997,45 @@
       ],
       "Hash": "fd6824ad91ede64151e93af67df6376b"
     },
+    "dismo": {
+      "Package": "dismo",
+      "Version": "1.3-14",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "methods",
+        "raster",
+        "sp",
+        "terra"
+      ],
+      "Hash": "ebe570a31007da4fa181125118de4729"
+    },
+    "doBy": {
+      "Package": "doBy",
+      "Version": "4.6.22",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "Deriv",
+        "MASS",
+        "Matrix",
+        "R",
+        "boot",
+        "broom",
+        "cowplot",
+        "dplyr",
+        "ggplot2",
+        "methods",
+        "microbenchmark",
+        "modelr",
+        "rlang",
+        "tibble",
+        "tidyr"
+      ],
+      "Hash": "a9b56885b9596c284168df26d6179c40"
+    },
     "dplyr": {
       "Package": "dplyr",
       "Version": "1.1.4",
@@ -824,6 +1105,20 @@
       "Repository": "CRAN",
       "Hash": "680887028577f3fa2a81e410ed0d6e42"
     },
+    "fasterize": {
+      "Package": "fasterize",
+      "Version": "1.0.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "RcppArmadillo",
+        "raster",
+        "wk"
+      ],
+      "Hash": "240d43256081fc51549b719caf587e32"
+    },
     "fastmap": {
       "Package": "fastmap",
       "Version": "1.2.0",
@@ -869,7 +1164,7 @@
       "Package": "foreign",
       "Version": "0.8-87",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "methods",
@@ -1014,6 +1309,95 @@
       ],
       "Hash": "44c6a2f8202d5b7e878ea274b1092426"
     },
+    "ggpubr": {
+      "Package": "ggpubr",
+      "Version": "0.6.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cowplot",
+        "dplyr",
+        "ggplot2",
+        "ggrepel",
+        "ggsci",
+        "ggsignif",
+        "glue",
+        "grid",
+        "gridExtra",
+        "magrittr",
+        "polynom",
+        "purrr",
+        "rlang",
+        "rstatix",
+        "scales",
+        "stats",
+        "tibble",
+        "tidyr",
+        "utils"
+      ],
+      "Hash": "c957612b8bb1ee9ab7b2450d26663e7e"
+    },
+    "ggrepel": {
+      "Package": "ggrepel",
+      "Version": "0.9.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "ggplot2",
+        "grid",
+        "rlang",
+        "scales",
+        "withr"
+      ],
+      "Hash": "cc3361e234c4a5050e29697d675764aa"
+    },
+    "ggsci": {
+      "Package": "ggsci",
+      "Version": "3.2.0",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "ggplot2",
+        "grDevices",
+        "scales"
+      ],
+      "Hash": "0c3268cddf4d3a3ce4e7e6330f8e92c8"
+    },
+    "ggsignif": {
+      "Package": "ggsignif",
+      "Version": "0.6.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "ggplot2"
+      ],
+      "Hash": "a57f0f5dbcfd0d77ad4ff33032f5dc79"
+    },
+    "ggspatial": {
+      "Package": "ggspatial",
+      "Version": "1.1.9",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "abind",
+        "ggplot2",
+        "glue",
+        "grid",
+        "methods",
+        "rlang",
+        "rosm",
+        "scales",
+        "sf",
+        "tibble",
+        "tidyr"
+      ],
+      "Hash": "0a4e5ed181eb823957df790ec11a28fc"
+    },
     "gh": {
       "Package": "gh",
       "Version": "1.4.1",
@@ -1088,6 +1472,20 @@
         "withr"
       ],
       "Hash": "e99641edef03e2a5e87f0a0b1fcc97f4"
+    },
+    "gridExtra": {
+      "Package": "gridExtra",
+      "Version": "2.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "grDevices",
+        "graphics",
+        "grid",
+        "gtable",
+        "utils"
+      ],
+      "Hash": "7d7f283939f563670a697165b2cf5560"
     },
     "gridGraphics": {
       "Package": "gridGraphics",
@@ -1238,6 +1636,19 @@
       "Repository": "CRAN",
       "Hash": "6154ec2223172bce8162d4153cda21f7"
     },
+    "insight": {
+      "Package": "insight",
+      "Version": "0.20.4",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "8457d6e682a49f2c87b698a830527b09"
+    },
     "isoband": {
       "Package": "isoband",
       "Version": "0.2.7",
@@ -1248,6 +1659,16 @@
         "utils"
       ],
       "Hash": "0080607b4a1a7b28979aecef976d8bc2"
+    },
+    "jpeg": {
+      "Package": "jpeg",
+      "Version": "0.1-10",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "031a0b683d001a7519202f0628fc0358"
     },
     "jquerylib": {
       "Package": "jquerylib",
@@ -1298,7 +1719,7 @@
       "Package": "knitr",
       "Version": "1.48",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "evaluate",
@@ -1380,6 +1801,32 @@
       ],
       "Hash": "e2fca3e12e4db979dccc6e519b10a7ee"
     },
+    "lme4": {
+      "Package": "lme4",
+      "Version": "1.1-35.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "R",
+        "Rcpp",
+        "RcppEigen",
+        "boot",
+        "graphics",
+        "grid",
+        "lattice",
+        "methods",
+        "minqa",
+        "nlme",
+        "nloptr",
+        "parallel",
+        "splines",
+        "stats",
+        "utils"
+      ],
+      "Hash": "16a08fc75007da0d08e0c0388c7c33e6"
+    },
     "lobstr": {
       "Package": "lobstr",
       "Version": "1.1.2",
@@ -1457,6 +1904,18 @@
       ],
       "Hash": "110ee9d83b496279960e162ac97764ce"
     },
+    "microbenchmark": {
+      "Package": "microbenchmark",
+      "Version": "1.5.0",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "graphics",
+        "stats"
+      ],
+      "Hash": "f9d226d88d4087d817d4e616626ce8e5"
+    },
     "mime": {
       "Package": "mime",
       "Version": "0.12",
@@ -1466,6 +1925,34 @@
         "tools"
       ],
       "Hash": "18e9c28c1d3ca1560ce30658b22ce104"
+    },
+    "minqa": {
+      "Package": "minqa",
+      "Version": "1.2.8",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "Rcpp"
+      ],
+      "Hash": "785ef8e22389d4a7634c6c944f2dc07d"
+    },
+    "modelr": {
+      "Package": "modelr",
+      "Version": "0.1.11",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "broom",
+        "magrittr",
+        "purrr",
+        "rlang",
+        "tibble",
+        "tidyr",
+        "tidyselect",
+        "vctrs"
+      ],
+      "Hash": "4f50122dc256b1b6996a4703fecea821"
     },
     "munsell": {
       "Package": "munsell",
@@ -1482,7 +1969,7 @@
       "Package": "nlme",
       "Version": "3.1-165",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "graphics",
@@ -1491,6 +1978,13 @@
         "utils"
       ],
       "Hash": "2769a88be217841b1f33ed469675c3cc"
+    },
+    "nloptr": {
+      "Package": "nloptr",
+      "Version": "2.1.1",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Hash": "27550641889a3abf3aec4d91186311ec"
     },
     "nnet": {
       "Package": "nnet",
@@ -1503,6 +1997,16 @@
         "utils"
       ],
       "Hash": "2c797b46eea7fb58ede195bc0b1f1138"
+    },
+    "numDeriv": {
+      "Package": "numDeriv",
+      "Version": "2016.8-1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "df58958f293b166e4ab885ebcad90e02"
     },
     "openssl": {
       "Package": "openssl",
@@ -1525,6 +2029,67 @@
         "utils"
       ],
       "Hash": "5410df8d22bd36e616f2a2343dbb328c"
+    },
+    "pbkrtest": {
+      "Package": "pbkrtest",
+      "Version": "0.5.3",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "R",
+        "broom",
+        "doBy",
+        "dplyr",
+        "lme4",
+        "methods",
+        "numDeriv"
+      ],
+      "Hash": "938e6bbc4ac57534f8b43224506a8966"
+    },
+    "pemisc": {
+      "Package": "pemisc",
+      "Version": "0.0.4.9011",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "PredictiveEcology",
+      "RemoteRepo": "pemisc",
+      "RemoteRef": "development",
+      "RemoteSha": "022b049c5d98f010bef84457ee6558f50cc11a84",
+      "Remotes": "achubaty/amc@development, PredictiveEcology/peutils@development",
+      "Requirements": [
+        "R",
+        "RCurl",
+        "Require",
+        "amc",
+        "data.table",
+        "fasterize",
+        "methods",
+        "parallel",
+        "parallelly",
+        "peutils",
+        "raster",
+        "reproducible",
+        "sf",
+        "stats",
+        "tools",
+        "utils"
+      ],
+      "Hash": "316c613e45d6c2c3f08a48d5f0060a42"
+    },
+    "peutils": {
+      "Package": "peutils",
+      "Version": "0.1.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "PredictiveEcology",
+      "RemoteRepo": "peutils",
+      "RemoteRef": "development",
+      "RemoteSha": "74c1077f4206d4145d0e738ffa5d82a2e94d8891",
+      "Hash": "22e2d9c115bd7c9a08358203539ac473"
     },
     "pillar": {
       "Package": "pillar",
@@ -1572,7 +2137,7 @@
       "Package": "pkgload",
       "Version": "1.4.0",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "cli",
@@ -1618,6 +2183,17 @@
       ],
       "Hash": "bd54ba8a0a5faded999a7aab6e46b374"
     },
+    "polynom": {
+      "Package": "polynom",
+      "Version": "1.4-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "graphics",
+        "stats"
+      ],
+      "Hash": "ceb5c2a59ba33d42d051285a3e8a5118"
+    },
     "praise": {
       "Package": "praise",
       "Version": "1.0.0",
@@ -1647,6 +2223,20 @@
         "utils"
       ],
       "Hash": "0c90a7d71988856bad2a2a45dd871bb9"
+    },
+    "progress": {
+      "Package": "progress",
+      "Version": "1.2.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "R6",
+        "crayon",
+        "hms",
+        "prettyunits"
+      ],
+      "Hash": "f4625e061cb2865f111b47ff163a5ca6"
     },
     "promises": {
       "Package": "promises",
@@ -1695,7 +2285,7 @@
       "Package": "ps",
       "Version": "1.7.7",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "utils"
@@ -1721,7 +2311,7 @@
       "Package": "qs",
       "Version": "0.26.3",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "BH",
         "R",
@@ -1731,11 +2321,34 @@
       ],
       "Hash": "e372cf3f70e3c7a768ec5ea14f0f3edd"
     },
-    "quickPlot": {
-      "Package": "quickPlot",
-      "Version": "1.0.2",
+    "quantreg": {
+      "Package": "quantreg",
+      "Version": "5.98",
       "Source": "Repository",
       "Repository": "P3M",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "MatrixModels",
+        "R",
+        "SparseM",
+        "graphics",
+        "methods",
+        "stats",
+        "survival"
+      ],
+      "Hash": "017561f17632c065388b7062da030952"
+    },
+    "quickPlot": {
+      "Package": "quickPlot",
+      "Version": "1.0.2.9003",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "PredictiveEcology",
+      "RemoteRepo": "quickPlot",
+      "RemoteRef": "development",
+      "RemoteSha": "9bfd2801989e1de9da13a99649759edeed83189a",
       "Requirements": [
         "R",
         "data.table",
@@ -1747,7 +2360,7 @@
         "terra",
         "utils"
       ],
-      "Hash": "47ca28ede1fe3b3ec5470d252ca80caf"
+      "Hash": "dbfe7545d7409553b170b99b45a80d2d"
     },
     "rappdirs": {
       "Package": "rappdirs",
@@ -1758,6 +2371,20 @@
         "R"
       ],
       "Hash": "5e3c5dc0b071b21fa128676560dbe94d"
+    },
+    "raster": {
+      "Package": "raster",
+      "Version": "3.6-26",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "methods",
+        "sp",
+        "terra"
+      ],
+      "Hash": "7d6eda494f34a644420ac1bfd2a8023a"
     },
     "rematch2": {
       "Package": "rematch2",
@@ -1795,14 +2422,14 @@
     },
     "reproducible": {
       "Package": "reproducible",
-      "Version": "2.1.1.9002",
+      "Version": "2.1.1.9005",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "PredictiveEcology",
       "RemoteRepo": "reproducible",
       "RemoteRef": "development",
-      "RemoteSha": "3ac3c96bbe2bc2f8bee7b2bc251f20bf41647f04",
+      "RemoteSha": "6f6cef4ae5fac6285b7a926545be9b636f2bd60c",
       "Remotes": "rspatial/geodata",
       "Requirements": [
         "R",
@@ -1816,7 +2443,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "74f76339364f53e9185520b1d1f3742d"
+      "Hash": "561ffbb7812c604ecd11c3773285ee2e"
     },
     "rex": {
       "Package": "rex",
@@ -1843,7 +2470,7 @@
       "Package": "rmarkdown",
       "Version": "2.27",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "bslib",
@@ -1861,6 +2488,22 @@
         "yaml"
       ],
       "Hash": "27f9502e1cdbfa195f94e03b0f517484"
+    },
+    "rosm": {
+      "Package": "rosm",
+      "Version": "0.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "curl",
+        "glue",
+        "jpeg",
+        "png",
+        "progress",
+        "rlang",
+        "wk"
+      ],
+      "Hash": "fcd529f183c4163a91430d7b7bbaece5"
     },
     "rpart": {
       "Package": "rpart",
@@ -1884,6 +2527,29 @@
         "R"
       ],
       "Hash": "4c8415e0ec1e29f3f4f6fc108bef0144"
+    },
+    "rstatix": {
+      "Package": "rstatix",
+      "Version": "0.7.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "broom",
+        "car",
+        "corrplot",
+        "dplyr",
+        "generics",
+        "magrittr",
+        "purrr",
+        "rlang",
+        "stats",
+        "tibble",
+        "tidyr",
+        "tidyselect",
+        "utils"
+      ],
+      "Hash": "5045fbb71b143878d8c51975d1d7d56d"
     },
     "rstudioapi": {
       "Package": "rstudioapi",
@@ -1974,6 +2640,23 @@
       ],
       "Hash": "ad57b543f7c3fca05213ba78ff63df9b"
     },
+    "sp": {
+      "Package": "sp",
+      "Version": "2.1-4",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "grid",
+        "lattice",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "75940133cca2e339afce15a586f85b11"
+    },
     "spatial": {
       "Package": "spatial",
       "Version": "7.3-17",
@@ -2033,7 +2716,7 @@
       "Package": "survival",
       "Version": "3.7-0",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "Matrix",
         "R",
@@ -2068,7 +2751,7 @@
       "Package": "systemfonts",
       "Version": "1.1.0",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "cpp11",
@@ -2136,6 +2819,29 @@
       ],
       "Hash": "a84e2cc86d07289b3b6f5069df7a004c"
     },
+    "tidyr": {
+      "Package": "tidyr",
+      "Version": "1.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "cpp11",
+        "dplyr",
+        "glue",
+        "lifecycle",
+        "magrittr",
+        "purrr",
+        "rlang",
+        "stringr",
+        "tibble",
+        "tidyselect",
+        "utils",
+        "vctrs"
+      ],
+      "Hash": "915fb7ce036c22a6a33b5a8adb712eb1"
+    },
     "tidyselect": {
       "Package": "tidyselect",
       "Version": "1.2.1",
@@ -2151,6 +2857,27 @@
         "withr"
       ],
       "Hash": "829f27b9c4919c16b593794a6344d6c0"
+    },
+    "tidyterra": {
+      "Package": "tidyterra",
+      "Version": "0.6.1",
+      "Source": "Repository",
+      "Repository": "P3M",
+      "Requirements": [
+        "R",
+        "cli",
+        "data.table",
+        "dplyr",
+        "ggplot2",
+        "magrittr",
+        "rlang",
+        "scales",
+        "sf",
+        "terra",
+        "tibble",
+        "tidyr"
+      ],
+      "Hash": "5d9672bc78297d33c4ad8b51a8aaa48f"
     },
     "timechange": {
       "Package": "timechange",
@@ -2177,7 +2904,7 @@
       "Package": "todor",
       "Version": "0.1.2",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "R.utils",
@@ -2262,6 +2989,19 @@
         "rlang"
       ],
       "Hash": "c03fa420630029418f7e6da3667aac4a"
+    },
+    "viridis": {
+      "Package": "viridis",
+      "Version": "0.6.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "ggplot2",
+        "gridExtra",
+        "viridisLite"
+      ],
+      "Hash": "acd96d9fa70adeea4a5a1150609b9745"
     },
     "viridisLite": {
       "Package": "viridisLite",
@@ -2381,7 +3121,7 @@
       "Package": "yaml",
       "Version": "2.3.9",
       "Source": "Repository",
-      "Repository": "P3M",
+      "Repository": "RSPM",
       "Hash": "9cb28d11799d93c953f852083d55ee9e"
     },
     "zip": {
