@@ -94,7 +94,7 @@ cl <- parallelly::makeClusterPSOCK(
   autoStop = TRUE
 )
 
-parallel::clusterExport(cl, varlist = "distdsn", envir = environment())
+parallel::clusterExport(cl, varlist = c("distdsn", "paths"), envir = environment())
 parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
@@ -103,6 +103,8 @@ parallel::clusterEvalQ(cl, {
     progress = 1,
     verbose = TRUE
   )
+
+  invisible(NULL)
 })
 
 parallel::parLapply(cl, distfiles, function(f) {
@@ -111,13 +113,15 @@ parallel::parLapply(cl, distfiles, function(f) {
     filename = file.path(paths$outputs, "binary_disturbed", paste0(str_sub(basename(f), end = 7L), "_disturbed.tif")),
     overwrite = TRUE
   )
+
+  invisible(NULL)
 })
 
 parallel::stopCluster(cl)
 
 ## build raster mosaic
 dist_src <- list.files(file.path(paths$outputs, "binary_disturbed"), full.names = TRUE)
-dist_mosaic <- file.path(paths$outputs, "mosaics")
+dist_mosaic <- file.path(paths$outputs, "mosaics") |> checkPath(create = TRUE)
 
 f0a <- AGBtrends::buildMosaics("binary_disturbed", intervals = NULL, src = dist_src, dst = dist_mosaic)
 
@@ -164,6 +168,8 @@ parallel::clusterEvalQ(cl, {
     progress = 1,
     verbose = TRUE
   )
+
+  invisible(NULL)
 })
 
 system.time({
