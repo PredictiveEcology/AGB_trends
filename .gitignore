@@ -15,10 +15,16 @@
 *_cache/
 cache
 cache/
+cache_wbi
+cache_wbi/
 inputs
 inputs/
+inputs_wbi
+inputs_wbi/
 outputs
 outputs/
+outputs_wbi
+outputs_wbi/
 
 # misc temp files
 *.utf8.md
