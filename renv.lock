@@ -85,14 +85,14 @@
     },
     "LandR": {
       "Package": "LandR",
-      "Version": "1.1.5.9018",
+      "Version": "1.1.5.9021",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
       "RemoteUsername": "PredictiveEcology",
       "RemoteRepo": "LandR",
       "RemoteRef": "development",
-      "RemoteSha": "ff6378a73e5f9c5c342f7f52116a24408a8f1b25",
+      "RemoteSha": "6abfb1dc3175972ee56a4b4b33abda29439df247",
+      "RemoteHost": "api.github.com",
       "Remotes": "CeresBarros/biomod2@dev_currentCeres, RNCan/BioSimClient_R, PredictiveEcology/map@development, PredictiveEcology/pemisc@development, PredictiveEcology/quickPlot@development, PredictiveEcology/reproducible@development, PredictiveEcology/SpaDES.core@development, PredictiveEcology/SpaDES.tools@development",
       "Requirements": [
         "MuMIn",
@@ -122,7 +122,7 @@
         "utils",
         "viridis"
       ],
-      "Hash": "033a3b1a3fd1de985bc1ad2642e216ac"
+      "Hash": "80a609dc412170ea653084fddf6e50c4"
     },
     "MASS": {
       "Package": "MASS",
@@ -2422,14 +2422,14 @@
     },
     "reproducible": {
       "Package": "reproducible",
-      "Version": "2.1.1.9005",
+      "Version": "2.1.1.9006",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "PredictiveEcology",
       "RemoteRepo": "reproducible",
       "RemoteRef": "development",
-      "RemoteSha": "6f6cef4ae5fac6285b7a926545be9b636f2bd60c",
+      "RemoteSha": "631cc06f0953db4fceccb8a5ce53752358b55eb4",
       "Remotes": "rspatial/geodata",
       "Requirements": [
         "R",
@@ -2443,7 +2443,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "561ffbb7812c604ecd11c3773285ee2e"
+      "Hash": "1e305170f87a9281b16f15b6683e683b"
     },
     "rex": {
       "Package": "rex",
