@@ -30,7 +30,9 @@ paths <- list(
   outputs = file.path("outputs", studyAreaName),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
+paths$figures <- file.path(paths$outputs, "figures")
+paths$mosaics <- file.path(paths$outputs, "mosaics")
+paths$terra <- checkPath(file.path(paths$scratch, "terra", "ABoVE"), create = TRUE)
 paths$tiles <- file.path(paths$outputs, "tiles") |>
   fs::dir_ls(regexp = "Bh", type = "directory") |>
   sort()
@@ -116,18 +118,20 @@ parallel::stopCluster(cl)
 
 ## 2.2) Combine tiled slope rasters into numerous unified mosaics -----------------------------
 
-f6a <- AGBtrends::buildMosaics("slopes", intervals = timeint, src = paths$tiles, dst = paths$outputs)
-f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, src = paths$tiles, dst = paths$outputs)
+f6a <- AGBtrends::buildMosaics("slopes", intervals = timeint, src = paths$tiles, dst = paths$mosaics)
+f6b <- AGBtrends::buildMosaics("sample_size", intervals = timeint, src = paths$tiles, dst = paths$mosaics)
 f6 <- c(f6a, f6b)
 
 ## Visual examination of results --------------------------------------------------------------
 
 ## verify hashes and file sizes
 sapply(names(timeint), function(tp) {
-  digest::digest(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif")), algo = "xxhash64")
+  file.path(paths$mosaics, paste0("agb_slope_mosaic_", tp, ".tif")) |>
+    digest::digest(algo = "xxhash64")
 })
 sapply(names(timeint), function(tp) {
-  file.size(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif")))
+  file.path(paths$mosaics, paste0("agb_slope_mosaic_", tp, ".tif")) |>
+    file.size()
 })
 
 ## TODO: finesse these plots further
@@ -135,35 +139,36 @@ sapply(names(timeint), function(tp) {
 plot_slope_mosaics <- function() {
   par(mfrow = c(3, 2))
   for (tp in names(timeint)) {
-    plot(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_", tp, ".tif"))), main = tp)
+    file.path(paths$mosaics, paste0("agb_slope_mosaic_", tp, ".tif")) |>
+      rast() |>
+      plot(main = tp)
   }
 }
 
 gg_slope_mosaics <- cowplot::plot_grid(plot_slope_mosaics)
 
-ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaics.png"),
+ggsave(file.path(paths$figures, "gg_slope_mosaics.png"),
        gg_slope_mosaics, height = 5, width = 10)
 
 plot_slope_mosaic_hists <- function() {
   par(mfrow = c(2, 3))
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t1.tif"))), main = "t1")
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t2.tif"))), main = "t2")
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t3.tif"))), main = "t3")
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t4.tif"))), main = "t4")
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t5.tif"))), main = "t5")
-  hist(rast(file.path(paths$outputs, paste0("agb_slope_mosaic_t6.tif"))), main = "t6")
+  for (i in seq_len(n_int)) {
+    file.path(paths$mosaics, paste0("agb_slopes_mosaic_t", i, ".tif")) |>
+      rast() |>
+      hist(main = paste0("t", i), maxcell = 1e+08)
+  }
 }
 
 gg_slope_mosaic_hists <- cowplot::plot_grid(plot_slope_mosaic_hists)
 
-ggsave(file.path(paths$outputs, "figures", "gg_slope_mosaic_hists.png"),
+ggsave(file.path(paths$figures, "gg_slope_mosaic_hists.png"),
        gg_slope_mosaic_hists, height = 5, width = 10)
 
 # 3) Group slopes by age at time x ------------------------------------------------------------
 ##    (band argument determines reference layer/year),
 ##    effectively masking out pixels disturbed mid-time series
 
-f7 <- AGBtrends::buildMosaics("age", intervals = timeint, src = paths$tiles, dst = paths$outputs)
+f7 <- AGBtrends::buildMosaics("age", intervals = timeint, src = paths$tiles, dst = paths$mosaics)
 
 # 4) Evaluate frequency distributions of forest landcover -----------------------------------
 
@@ -212,7 +217,7 @@ for (eco in c("ECOZONE", "ECOREGION", "ECOPROVINCE")) {
     prepZones(
       zoi = zoi,
       field = eco,
-      ageClass = rast(file.path(paths$outputs, "mosaics", paste0("agb_age_mosaic_classes_t", i, ".tif"))),
+      ageClass = rast(file.path(paths$mosaics, paste0("agb_age_mosaic_classes_t", i, ".tif"))),
       fileID = paste0("WBI_", tolower(eco), "_t", i),
       destinationPath = paths$outputs,
       overwrite = TRUE
@@ -229,8 +234,8 @@ parallel::stopCluster(cl)
 ## Note in following that age at beginning of the 31 year time series (1984-2014)
 ## is identical to age at beginning of 't1' time interval (i.e. 1984-1988)
 files <- list(
-  list.files(file.path(paths$outputs, "mosaics"), pattern = "slopes_mosaic", full.names = TRUE),
-  list.files(file.path(paths$outputs, "mosaics"), pattern = "sample_size", full.names = TRUE),
+  list.files(paths$mosaics, pattern = "slopes_mosaic", full.names = TRUE),
+  list.files(paths$mosaics, pattern = "sample_size", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecozone", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoregion", full.names = TRUE),
   list.files(paths$outputs, pattern = "ZOIxageClass_WBI_ecoprovince", full.names = TRUE)
@@ -301,8 +306,8 @@ terra::tmpFiles(remove = TRUE)
 
 agb_tifs <- fs::dir_ls(paths$tiles, regexp = "ragb", recurse = TRUE) ## 81 files
 
-agb_mosaic <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000.tif")
-agb_mosaic_classes <- file.path(paths$outputs, "mosaics", "agb_mosaic_2000_classes.tif")
+agb_mosaic <- file.path(paths$mosaics, "agb_mosaic_2000.tif")
+agb_mosaic_classes <- file.path(paths$mosaics, "agb_mosaic_2000_classes.tif")
 
 sf::gdal_utils(
   util = "buildvrt",
@@ -343,7 +348,7 @@ gg_agb_age_class <- ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_200
   scale_y_continuous(name = "AGB (Tg * 0.01)") +
   geom_bar(stat = "identity")
 
-ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_ageClass.png"), gg_agb_age_class,
+ggsave(file.path(paths$figures, "AGB_distribution_x_ageClass.png"), gg_agb_age_class,
        width = 8, height = 4)
 
 ## iv) visualize AGB (in Tg) by AGB class as per Wang et al. (2021)
@@ -360,7 +365,7 @@ gg_agb_agb_class <- ggplot(
   scale_y_continuous(name = "AGB Stock (Tg * 0.01)") +
   geom_bar(stat = "identity")
 
-ggsave(file.path(paths$outputs, "figures", "AGB_distribution_x_AGBClass.png"), gg_agb_agb_class,
+ggsave(file.path(paths$figures, "AGB_distribution_x_AGBClass.png"), gg_agb_agb_class,
        width = 8, height = 4)
 
 ## Request 2: cumulative delta AGB by ecozone -------------------------------------------------
@@ -461,7 +466,7 @@ lapply(1:length(ecozones), function(i) {
     geom_hline(yintercept = 0, lty = "dashed") +
     labs(color = "Units")
 
-  ggsave(file.path(paths$outputs, "figures", paste0("AGB_distribution_x_Year_", ecozones[i], ".png")),
+  ggsave(file.path(paths$figures, paste0("AGB_distribution_x_Year_", ecozones[i], ".png")),
          gg_ptab_ez, width = 8, height = 4)
 })
 
@@ -471,42 +476,59 @@ lapply(1:length(ecozones), function(i) {
 
 ## 8 a) without disturbance mask --------------------------------------------------------------
 
+t_ref <- tref(timeint, years)
+
 ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
 gg_71 <- plotZoneStats(
-  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_ecozone.rds")
+  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_ecozone.rds"),
+  tref = t_ref
 )
 
 ggsave(
-  file.path(paths$outputs, "figures", "AGB_global_trends_WBI_ecozone_x_ageClass.png"),
+  file.path(paths$figures, "AGB_global_trends_WBI_ecozone_x_ageClass.png"),
   gg_71,
   width = 8,
   height = 4
 )
 
 ## x Ecozone x ageClass
-files2plot <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$outputs, "summaries") |>
   list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
 
-gg_72 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp", groupVar = "ageClass", ptype = 1)
+gg_72 <- plotZoneStatsIntervals(
+  files2plot = f2p,
+  tref = t_ref,
+  weighted = TRUE,
+  xVar = "tp",
+  groupVar = "ageClass",
+  ptype = 1
+)
 
 ggsave(
-  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".png")),
+  file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".png")),
   gg_72,
   width = 8,
   height = 4
 )
 
 ## x ageClass x Ecozone
-files2plot <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$outputs, "summaries") |>
   list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
 
-gg_73 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp",
-                                catVar = "ageClass", groupVar = "ECOZONE",
-                                ptype = 2, plotResult = FALSE) |>
+gg_73 <- plotZoneStatsIntervals(
+  files2plot = f2p,
+  tref = t_ref,
+  weighted = TRUE,
+  xVar = "tp",
+  catVar = "ageClass",
+  groupVar = "ECOZONE",
+  ptype = 2,
+  plotResult = FALSE
+) |>
   cowplot::plot_grid(plotlist = _)
 
 ggsave(
-  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")),
+  file.path(paths$figures, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")),
   gg_73,
   width = 10,
   height = 5
@@ -514,37 +536,48 @@ ggsave(
 
 ## 8 b) with disturbance mask -----------------------------------------------------------------
 gg_74 <- plotZoneStats(
-  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_distMask_ecozone.rds")
+  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_distMask_ecozone.rds"),
+  tref = t_ref
 )
 
 ## TODO: verify & adjust output filename
 # ggsave(
-#   file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+#   file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
 #   gg_74
 # )
 
 ## x ageClass x Ecozone
-files2plot <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$outputs, "summaries") |>
   list.files(pattern = "zoneStats_summary_WBI_distMask_ecozone_", full.names = TRUE)
 
-gg_75 <- plotZoneStatsIntervals(files2plot, weighted = TRUE, xVar = "tp",
-                                catVar = "ageClass", groupVar = "ECOZONE",
-                                ptype = 2, plotResult = FALSE) |>
+gg_75 <- plotZoneStatsIntervals(
+  files2plot = f2p,
+  tref = t_ref,
+  weighted = TRUE,
+  xVar = "tp",
+  catVar = "ageClass",
+  groupVar = "ECOZONE",
+  ptype = 2,
+  plotResult = FALSE
+) |>
   cowplot::plot_grid(plotlist = _) ## NOTE: only age class `0-24` here
 
 ggsave(
-  file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+  file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
   gg_75
 )
 
-files2plot = file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$outputs, "summaries") |>
   list.files(pattern = "WBI_distMask_ecozone", full.names = TRUE)
 
-gg_76 <- plotZoneStatsIntervals(files2plot) ## NOTE: only age class `0-24` here
+gg_76 <- plotZoneStatsIntervals(
+  files2plot = f2p,
+  tref = t_ref
+) ## NOTE: only age class `0-24` here
 
 ## TODO: verify & adjust output filename
 # ggsave(
-#   file.path(paths$outputs, "figures", paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
+#   file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
 #   gg_76
 # )
 
@@ -553,4 +586,4 @@ gg_76 <- plotZoneStatsIntervals(files2plot) ## NOTE: only age class `0-24` here
 ## TODO
 
 # cleanup -------------------------------------------------------------------------------------
-unlink(paths$terra, recursive = TRUE)
+terra::tmpFiles(orphan = TRUE, remove = TRUE)

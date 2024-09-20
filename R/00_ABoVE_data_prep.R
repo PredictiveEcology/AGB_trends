@@ -29,7 +29,7 @@ paths <- list(
   outputs = file.path("outputs", studyAreaName),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
+paths$terra <- checkPath(file.path(paths$scratch, "terra", "ABoVE"), create = TRUE)
 paths$tiles <- file.path(paths$outputs, "tiles") |>
   fs::dir_ls(regexp = "Bh", type = "directory") |>
   sort()
@@ -205,4 +205,4 @@ ftab <- lapply(ftab, function(x) {
 saveRDS(ftab, file.path(paths$outputs, "ABoVE_LandCover_freq_tables.rds"))
 
 # cleanup -------------------------------------------------------------------------------------
-unlink(paths$terra, recursive = TRUE)
+terra::tmpFiles(remove = TRUE)

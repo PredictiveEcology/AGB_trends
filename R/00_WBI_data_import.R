@@ -1,4 +1,5 @@
 # packages ------------------------------------------------------------------------------------
+
 library(dplyr)
 library(ggplot2)
 library(reproducible)
@@ -35,7 +36,7 @@ paths <- list(
   outputs = file.path("outputs_wbi", studyAreaName, paste0(climateScenario, "_run", thisRep)),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
+paths$terra <- checkPath(file.path(paths$scratch, "terra", climateScenario, "00"), create = TRUE)
 
 terraOptions(tempdir = paths$terra, todisk = TRUE)
 
@@ -56,10 +57,11 @@ n_int <- length(timeint)
 
 # 1) locate WBI simulated AGB rasters ---------------------------------------------------------
 
-agbrasters <- file.path(paths$inputs, allOutputDirs) |>
+## NOTE: biomass maps needed to be rebuit from cohortData + pixelGroupMap
+agbrasters <- file.path(paths$inputs, allOutputDirs, "postprocess") |>
   rep(length(years)) |>
   sort() |>
-  file.path(paste0("simulatedBiomassMap_", years, "_year", years, ".tif"))
+  file.path(paste0("simulatedBiomassMap_redux_", years, "_year", years, ".tif"))
 
 stopifnot(all(file.exists(agbrasters)))
 
@@ -170,4 +172,3 @@ ggsave(
 
 # cleanup -------------------------------------------------------------------------------------
 terra::tmpFiles(orphan = TRUE, remove = TRUE)
-unlink(paths$terra, recursive = TRUE)

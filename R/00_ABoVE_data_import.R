@@ -34,7 +34,7 @@ paths <- list(
   outputs = file.path("outputs", studyAreaName),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$terra <- checkPath(file.path(paths$scratch, "terra"), create = TRUE)
+paths$terra <- checkPath(file.path(paths$scratch, "terra", "ABoVE"), create = TRUE)
 
 ## set the max number of cores to use for parallel computations
 no_cores <- AGBtrends::getNumCores()
@@ -328,4 +328,4 @@ gg_tiles <- cowplot::plot_grid(plot_studyArea_tiles)
 ggsave(file.path(paths$outputs, "figures", paste0("ABoVE_tiles_", studyAreaName, ".png")), gg_tiles, width = 12, height = 8)
 
 # cleanup -------------------------------------------------------------------------------------
-unlink(paths$terra, recursive = TRUE)
+terra::tmpFiles(orphan = TRUE, remove = TRUE)
