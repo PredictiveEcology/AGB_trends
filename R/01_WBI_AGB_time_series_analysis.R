@@ -1,3 +1,17 @@
+##  Updated: Sept 20, 2024
+##
+##  Auteurs: Alex M. Chubaty, PhD, FOR-CAST Research & Analytics
+##           Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
+##
+##  Description :
+##   Recreate the ABoVE AGB time series analyses using simulated biomass, age, and disturbance
+##   maps from the Western Boreal Initiative, which forecast vegetation and wildfire dynamics
+##   from 2011-2100 under multiple climate change scenarios.
+##
+##   WBI simulations used 250m pixels, and output above ground biomass values in g/m^2,
+##   which should be equivalent to the ABoVE data product (Mg/ha with scaling factor of 0.01):
+##     Mg/ha = 10e6 g / 10e4 m^2 = 10e2 g / m^2; scaled by 0.01 gives g/m^2
+
 # packages ------------------------------------------------------------------------------------
 
 library(dplyr)
