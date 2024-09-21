@@ -9,6 +9,7 @@
 ##   ABoVE AGB 31-year time series (1984-2014)
 
 # packages ------------------------------------------------------------------------------------
+
 library(dplyr)
 library(ggplot2)
 library(reproducible)
@@ -19,6 +20,7 @@ library(terra)
 library(AGBtrends)
 
 # global parameters for project setup ---------------------------------------------------------
+
 projName <- workflowtools::findProjectName()
 studyAreaName <- "studyArea_WBI"
 user <- Sys.info()[["user"]]
@@ -30,14 +32,19 @@ paths <- list(
   outputs = file.path("outputs", studyAreaName),
   scratch = ifelse(dir.exists("/mnt/scratch"), file.path("/mnt/scratch", user, projName), "scratch")
 )
-paths$figures <- file.path(paths$outputs, "figures")
-paths$mosaics <- file.path(paths$outputs, "mosaics")
-paths$terra <- checkPath(file.path(paths$scratch, "terra", "ABoVE"), create = TRUE)
+paths$figures <- file.path(paths$outputs, "figures") |> checkPath(create = TRUE)
+paths$mosaics <- file.path(paths$outputs, "mosaics") |> checkPath(create = TRUE)
+paths$summaries <- file.path(paths$outputs, "summaries") |> checkPath(create = TRUE)
+paths$terra <- file.path(paths$scratch, "terra", "ABoVE") |> checkPath(create = TRUE)
 paths$tiles <- file.path(paths$outputs, "tiles") |>
   fs::dir_ls(regexp = "Bh", type = "directory") |>
   sort()
 
 file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
+
+terraOptions(tempdir = paths$terra)
+
+pixelAreaHa <- 0.09 ## (30 m)^2 / (10e4 m^2/h) = 0.09 ha per pixel
 
 ## define time intervals (year ranges between 1984-2014)
 timeint <- list(t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:31)
@@ -86,7 +93,7 @@ f3 <- c(f3a, f3b)
 ## set the max number of cores to use for parallel computations
 no_cores <- min(
   as.integer(terra::free_RAM() / 1024^2 / 15), ## <15 GB per thread
-  AGBtrends::getNumCores(n_int)
+  AGBtrends::getNumCores(length(paths$tiles))
 )
 
 cl <- parallelly::makeClusterPSOCK(
@@ -257,7 +264,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
   default_packages = c("AGBtrends", "dplyr", "sf", "terra"),
   rscript_libs = .libPaths(), autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("irast", "no_cores"), envir = environment())
+parallel::clusterExport(cl, varlist = c("irast", "no_cores", "paths"), envir = environment())
 parallel::clusterEvalQ(cl, {
   terraOptions(tempdir = paths$terra, memfrac = 0.5 / no_cores)
 
@@ -265,31 +272,47 @@ parallel::clusterEvalQ(cl, {
 })
 
 system.time({
-  parallel::parLapply(cl, seq(no_cores), function(i, svar = "ecozone", maskRaster = NULL) {
-    ## TODO: use maskRaster file name to qualify file.id writeRaster tag
+  parallel::parLapply(cl, seq(no_cores), function(i, svar = "ecozone") {
+    ## maskRaster arg can be either e.g. was it disturbed? or e.g. is it forested? or both?
+    ## e.g., for pixels disturbed over course of time series (according to ABoVE) use:
+    ##   rast(file.path(paths$outputs, "mosaics", "binary_disturbed_mosaic.tif")) |>
+    ##     classify(cbind(1, NA))
+
+    ## run without mask
     if (i == n_int) {
       file.id <- paste0("WBI_", svar)
-      # file.id <- paste0("WBI_distMask_", svar)
     } else {
       file.id <- paste0("WBI_", svar, "_t", i)
-      # file.id <- paste0("WBI_distMask_", svar, "_t", i)
     }
 
     zoneStats(
       slopeRaster = rast(irast$slope[i]),
       weightRaster = rast(irast$w[i]),
       zoneRaster = rast(irast[[svar]][i]),
-      ## maskRaster arg can be either e.g. was it disturbed? or e.g. is it forested? or both:
-      ## e.g. use `rast(file.path(paths$outputs, "mosaics", "binary_disturbed_mosaic.tif"))`
-      ##      for pixels disturbed over course of time series (according to ABoVE)
-      maskRaster = maskRaster,
-      file.id = file.id,
-      destinationPath = paths$outputs
+      maskRaster = NULL,
+      fileId = file.id,
+      destinationPath = paths$summaries
+    )
+
+    ## run with disturbance mask
+    if (i == n_int) {
+      file.id <- paste0("WBI_distMask_", svar)
+    } else {
+      file.id <- paste0("WBI_distMask_", svar, "_t", i)
+    }
+
+    zoneStats(
+      slopeRaster = rast(irast$slope[i]),
+      weightRaster = rast(irast$w[i]),
+      zoneRaster = rast(irast[[svar]][i]),
+      maskRaster = rast(file.path(paths$outputs, "mosaics", "binary_disturbed_mosaic.tif")),
+      fileId = file.id,
+      destinationPath = paths$summaries
     )
 
     return(invisible(NULL))
   })
-}) # ~ 2 hrs
+}) # ~ 4 hrs
 
 parallel::stopCluster(cl)
 terra::tmpFiles(remove = TRUE)
@@ -323,26 +346,27 @@ sf::gdal_utils(
 )
 
 ## i) rescale by 0.01 and classify into bins similar to Wang et al.
-classify(rast(agb_mosaic) * 0.01,
-  rcl = c(0, 50, 100, 150, 250),
+classify(
+  rast(agb_mosaic) * 0.01, ## get true Mg/ha values
+  rcl = c(0, 50, 100, 150, 250), ## Mg/ha bins
   include.lowest = TRUE, brackets = TRUE, right = FALSE,
   filename = agb_mosaic_classes,
   overwrite = TRUE
 )
 
-## ii) compute sum of AGB (in Tg) by age class (t4 = 2000)
-agbSum <- zonal(rast(agb_mosaic) * 0.09,
+## ii) compute sum of AGB (in Mg) by age class (t4 = 2000)
+agbSum <- zonal(rast(agb_mosaic) * pixelAreaHa,
   rast(file.path(paths$outputs, "mosaics", "agb_age_mosaic_classes_t4.tif")),
   fun = "sum", na.rm = TRUE
 )
 
 ## iv) compute sum of AGB (in Mg) by AGB class as in Wang et al.
-agbClass <- zonal(rast(agb_mosaic) * 0.09,
+agbClass <- zonal(rast(agb_mosaic) * pixelAreaHa,
   rast(agb_mosaic_classes),
   fun = "sum", na.rm = TRUE
 )
 
-## iii) visualize AGB (in Tg * 0.01) by age class (Mg/ha * 0.01)
+## iii) visualize AGB (in Tg * 0.01) by age class
 gg_agb_age_class <- ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_2000 * 1e-6 * 0.01))) +
   scale_x_discrete(name = "Stand Age Class", labels = c("0-24", "25-49", "50-79", "80-124", ">= 125")) +
   scale_y_continuous(name = "AGB (Tg * 0.01)") +
@@ -351,7 +375,7 @@ gg_agb_age_class <- ggplot(data = agbSum, aes(x = ageClass, y = I(agb_mosaic_200
 ggsave(file.path(paths$figures, "AGB_distribution_x_ageClass.png"), gg_agb_age_class,
        width = 8, height = 4)
 
-## iv) visualize AGB (in Tg) by AGB class as per Wang et al. (2021)
+## iv) visualize AGB (in Tg * 0.01) by AGB class as per Wang et al. (2021)
 gg_agb_agb_class <- ggplot(
   data = agbClass |>
     rename(agbClass = agb_mosaic_2000, agb = agb_mosaic_2000.1) |>
@@ -378,7 +402,7 @@ cl <- parallelly::makeClusterPSOCK(no_cores,
   rscript_libs = .libPaths(),
   autoStop = TRUE
 )
-parallel::clusterExport(cl, varlist = c("no_cores", "paths", "years"))
+parallel::clusterExport(cl, varlist = c("no_cores", "paths", "pixelAreaHa", "years"))
 parallel::clusterEvalQ(cl, {
   terraOptions(
     tempdir = paths$terra,
@@ -400,7 +424,7 @@ do.call(rbind, parallel::parLapply(cl, agb_tifs, function(r) {
   yrs <- names(rast(r))
 
   x <- do.call(rbind, lapply(yrs, function(yr) {
-    (rast(r, lyr = yr) * 0.09) |>
+    (rast(r, lyr = yr) * pixelAreaHa) |>
       zonal(ez, fun = "sum", na.rm = TRUE) |>
       mutate(Year = yr, .before = all_of(yr)) |>
       dplyr::rename(AGB = yr)
@@ -480,7 +504,7 @@ t_ref <- tref(timeint, years)
 
 ## i=1 corresponds to 31-year time series, i=2 corresponds to time interval t1 (1984-1988), and so on and so forth
 gg_71 <- plotZoneStats(
-  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_ecozone.rds"),
+  files2plot = file.path(paths$summaries, "zoneStats_summary_WBI_ecozone.rds"),
   tref = t_ref
 )
 
@@ -492,7 +516,7 @@ ggsave(
 )
 
 ## x Ecozone x ageClass
-f2p <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$summaries) |>
   list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
 
 gg_72 <- plotZoneStatsIntervals(
@@ -512,7 +536,7 @@ ggsave(
 )
 
 ## x ageClass x Ecozone
-f2p <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$summaries) |>
   list.files(pattern = "zoneStats_summary_WBI_ecozone_", full.names = TRUE)
 
 gg_73 <- plotZoneStatsIntervals(
@@ -536,7 +560,7 @@ ggsave(
 
 ## 8 b) with disturbance mask -----------------------------------------------------------------
 gg_74 <- plotZoneStats(
-  files2plot = file.path(paths$outputs, "summaries", "zoneStats_summary_WBI_distMask_ecozone.rds"),
+  files2plot = file.path(paths$summaries, "zoneStats_summary_WBI_distMask_ecozone.rds"),
   tref = t_ref
 )
 
@@ -547,7 +571,7 @@ gg_74 <- plotZoneStats(
 # )
 
 ## x ageClass x Ecozone
-f2p <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$summaries) |>
   list.files(pattern = "zoneStats_summary_WBI_distMask_ecozone_", full.names = TRUE)
 
 gg_75 <- plotZoneStatsIntervals(
@@ -567,7 +591,7 @@ ggsave(
   gg_75
 )
 
-f2p <- file.path(paths$outputs, "summaries") |>
+f2p <- file.path(paths$summaries) |>
   list.files(pattern = "WBI_distMask_ecozone", full.names = TRUE)
 
 gg_76 <- plotZoneStatsIntervals(

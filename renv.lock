@@ -19,13 +19,13 @@
   "Packages": {
     "AGBtrends": {
       "Package": "AGBtrends",
-      "Version": "0.0.8",
+      "Version": "0.0.9",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteUsername": "PredictiveEcology",
       "RemoteRepo": "AGBtrends",
       "RemoteRef": "main",
-      "RemoteSha": "3383766552e5b627101b03eccf9d3c527f0ac382",
+      "RemoteSha": "d7315fa29e6708b852d34b350be56f6e5df4a332",
       "RemoteHost": "api.github.com",
       "Remotes": "PredictiveEcology/reproducible@development, PredictiveEcology/SpaDES.tools@development",
       "Requirements": [
@@ -42,7 +42,7 @@
         "tools",
         "utils"
       ],
-      "Hash": "fb99dba0506e5437c213975c6ea9c412"
+      "Hash": "71388eb17d000d054ba5f6eed7466f17"
     },
     "BH": {
       "Package": "BH",

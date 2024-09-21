@@ -1,6 +1,6 @@
 ##  Updated: Sept 20, 2024
 ##
-##  Auteurs: Alex M. Chubaty, PhD, FOR-CAST Research & Analytics
+##  Authors: Alex M. Chubaty, PhD, FOR-CAST Research & Analytics
 ##           Tyler Rudolph, biologist M.Sc., CFS/NRCAN, Trade, Economics & Industry Branch
 ##
 ##  Description :
@@ -8,12 +8,12 @@
 ##   maps from the Western Boreal Initiative, which forecast vegetation and wildfire dynamics
 ##   from 2011-2100 under multiple climate change scenarios.
 ##
-##   WBI simulations used 250m pixels, and output above ground biomass values in g/m^2,
-##   which should be equivalent to the ABoVE data product (Mg/ha with scaling factor of 0.01):
-##     Mg = 10^6 g
-##     ha = 10^4 m^2
-##     Mg/ha = 10^2 g / m^2
-##     scaled by 0.01 gives g/m^2
+##   WBI simulations used 250m pixels, and output above ground biomass values in g/m^2;
+##   ABoVE data product used 30m pixels, with AGB in Mg/ha with scaling factor of 0.01
+##   (ABoVE values should be multiplied by the scale factor to obtain true values).
+##
+##   ABoVE: Mg/ha = 10e6 g / 10e4 m^2 = 10e2 g / m^2; scaled by 0.01 gives 10^4 g/m^2
+##   therefore, WBI values need to be divided by 100 to be comparable to ABoVE.
 
 # packages ------------------------------------------------------------------------------------
 
@@ -43,10 +43,28 @@ if (!exists("climateSSP")) {
 climateScenario <- paste0(climateGCM, "_SSP", climateSSP)
 
 allReps <- sprintf("%02d", 1:5)
+allStudyAreas <- c("AB", "BC", "NT", "SK", "YT") ## MB doesn't overlap with ABoVE (see #5 below)
+
+## set the max number of cores to use for parallel computations
+# options(parallelly.availableCores.fallback = 4L) ## set to limit the number of cores
+
+## WBI default CRS
+targetCRS <- paste("+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
+                   "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0") |> crs()
+
+## define time intervals (year ranges between 2011-2100)
+timeint <- list(
+  t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:30,
+  t7 = 31:35, t8 = 36:40, t9 = 41:45, t10 = 46:50, t11 = 51:55, t12 = 56:60,
+  t13 = 61:65, t14 = 66:70, t15 = 71:75, t16 = 76:80, t17 = 81:85, t18 = 86:90
+)
+timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
+
+years <- (timeint_all |> unlist() |> unname()) + 2010
+n_int <- length(timeint)
 
 lapply(allReps, function(thisRep) {
   message(paste("Processing", climateScenario, "rep", thisRep))
-  allStudyAreas <- c("AB", "BC", "NT", "SK", "YT") ## MB doesn't overlap with ABoVE (see #5 below)
 
   allOutputDirs <- paste0(allStudyAreas, "_", climateScenario) |>
     rep(length(thisRep)) |>
@@ -63,26 +81,7 @@ lapply(allReps, function(thisRep) {
   paths$mosaics <- file.path(paths$outputs, "mosaics")
   paths$terra <- checkPath(file.path(paths$scratch, "terra", climateScenario, "00"), create = TRUE)
 
-  ## set the max number of cores to use for parallel computations
-  # options(parallelly.availableCores.fallback = 4L) ## set to limit the number of cores
-  no_cores <- AGBtrends::getNumCores() ## use up to half the number cores or fallback
-
   terraOptions(tempdir = paths$terra, todisk = TRUE)
-
-  ## WBI default CRS
-  targetCRS <- paste("+proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95",
-                     "+x_0=0 +y_0=0 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0") |> crs()
-
-  ## define time intervals (year ranges between 2011-2100)
-  timeint <- list(
-    t1 = 1:5, t2 = 6:10, t3 = 11:15, t4 = 16:20, t5 = 21:25, t6 = 26:30,
-    t7 = 31:35, t8 = 36:40, t9 = 41:45, t10 = 46:50, t11 = 51:55, t12 = 56:60,
-    t13 = 61:65, t14 = 66:70, t15 = 71:75, t16 = 76:80, t17 = 81:85, t18 = 86:90
-  )
-  timeint_all <- timeint |> unlist() |> unname() |> list(all = _)
-
-  years <- (timeint_all |> unlist() |> unname()) + 2010
-  n_int <- length(timeint)
 
   # 1) data import ------------------------------------------------------------------------------
 
@@ -90,12 +89,6 @@ lapply(allReps, function(thisRep) {
   agb_gpkg <- file.path("outputs", "studyArea_WBI", "ABoVE_AGB_study_area.gpkg")
   dstagnt_gpkg <- file.path("outputs", "studyArea_WBI", "ABoVE_DistAgents_study_area.gpkg")
   studyArea_gpkg <- file.path("outputs", "studyArea_WBI", "WBI_studyArea.gpkg")
-
-  ## 1.1) Import ABoVE product tiles ------------------------------------------------------------
-  # agb_tiles <- st_read(agb_gpkg, "tileset", quiet = TRUE) |>
-  #   st_transform(targetCRS)
-  # dist_tiles <- st_read(dstagnt_gpkg, "tileset", quiet = TRUE) |>
-  #   st_transform(targetCRS)
 
   ## 1.2) Index WBI AGB input rasters -----------------------------------------------------------
   agbdsn <- file.path(paths$inputs, allOutputDirs, "postprocess")
@@ -123,10 +116,11 @@ lapply(allReps, function(thisRep) {
   age_out <- file.path(paths$outputs, "age") |>
     checkPath(create = TRUE)
 
+  source("R/WBI_standAge.R")
+
   ptime <- system.time({
     ## this prepares both agb and age rasters, creating "stacks" of timeseries for each WBI prov;
     ## this works on the rasters "as-is", which includes the buffered area used for simulation.
-    source("R/WBI_standAge.R")
     outfiles <- WBI_standAge(agbfiles, agefiles, sadirs, years)
     terra::tmpFiles(remove = TRUE)
   })
@@ -167,6 +161,7 @@ lapply(allReps, function(thisRep) {
 
   parallel::clusterExport(cl, varlist = c("dist_out", "mempercore", "no_cores", "paths"),
                           envir = environment())
+
   parallel::clusterEvalQ(cl, {
     terraOptions(
       tempdir = paths$terra,
@@ -194,6 +189,9 @@ lapply(allReps, function(thisRep) {
   })
 
   parallel::stopCluster(cl)
+  rm(cl)
+  gc()
+
   terra::tmpFiles(remove = TRUE)
 
   ## mask study area raster with the study area polygon to remove buffered portion

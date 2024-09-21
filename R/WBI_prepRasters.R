@@ -28,17 +28,27 @@ WBI_prepRasters <- function(type, studyAreas, years, paths, dst, cl = NULL) {
     wbi_rast_crs <- file.path(dirname(dst), "agb", p, paste0("ragb_", p, ".tif")) |>
       rast() |>
       crs()
+
+    agb_gpkg <- file.path("outputs", "studyArea_WBI", "ABoVE_AGB_study_area.gpkg")
+    agb_tiles <- st_read(agb_gpkg, "tileset", quiet = TRUE) |>
+      st_buffer(1e3) |>
+      st_buffer(-1e3) |>
+      st_union() |>
+      st_make_valid() |>
+      st_transform(wbi_rast_crs)
+
     wbi_provs <- file.path("outputs_wbi", "AGB_WBI", "WBI_studyArea_provs.gpkg") |>
       st_read(quiet = TRUE) |>
       st_transform(wbi_rast_crs)
     wbi_provs$PREABBR <- c("AB", "BC", "MB", "NT", "NT", "SK", "YT") ## NU is part of NT rasters
     prov <- wbi_provs[wbi_provs$PREABBR == p, ] |>
+      st_intersection(agb_tiles) |>
       st_union() |>
       vect()
 
     if (type == "disturbed") {
       allYears <- list.files(dst, full.names = TRUE, pattern = paste0(p, "_")) |>
-        grep("_all", x = _, invert = TRUE, value = TRUE) |>
+        grep("_(binary_disturbed|disturbed_all)", x = _, invert = TRUE, value = TRUE) |>
         sort()
 
       stk <- rast(allYears) |>
@@ -46,7 +56,14 @@ WBI_prepRasters <- function(type, studyAreas, years, paths, dst, cl = NULL) {
         mask(prov)
       names(stk) <- years
 
-      stk <- writeRaster(stk, file.path(dst, paste0(p, "_", type, "_all.tif")), overwrite = TRUE)
+      f_stk <- file.path(dst, paste0(p, "_", type, "_all.tif"))
+      writeRaster(stk, f_stk, overwrite = TRUE)
+
+      stk <- writeRaster(
+        any(stk),
+        filename = gsub("disturbed_all", "binary_disturbed", f_stk),
+        overwrite = TRUE
+      )
 
       try(unlink(allYears))
     } else {

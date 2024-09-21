@@ -49,13 +49,11 @@ WBI_buildMosaics <- function(type, src, dst, intervals = NULL, cl = NULL) {
                                       paste0(type, "_t", i, "_", basename(d))))
       })
     } else if (srcType == "file") {
-      if (type == "binary_disturbed") {
-        grep("disturbed", src, value = TRUE)
-      } else {
-        grep(paste0("_", type), src, value = TRUE)
-      }
+      grep(paste0("_", type), src, value = TRUE)
     } |>
       unname()
+
+    stopifnot(length(flist) > 0)
 
     ## Build virtual rasters
     if (length(intervals) == 1) {
@@ -72,7 +70,7 @@ WBI_buildMosaics <- function(type, src, dst, intervals = NULL, cl = NULL) {
         util = "buildvrt",
         source = flist,
         destination = vrts,
-        options = c("-b", lyrs[i]) # time 1 = 1984 etc.
+        options = c("-b", lyrs[i]) # time 1 = 2011 etc.
       )
     } else {
       sf::gdal_utils(
@@ -83,7 +81,7 @@ WBI_buildMosaics <- function(type, src, dst, intervals = NULL, cl = NULL) {
     }
 
     ## Write to raster mosaics
-    sf::gdal_utils(util = "warp", source = vrts, destination = tifs)
+    sf::gdal_utils(util = "warp", source = vrts, destination = tifs, options = c("-overwrite"))
     file.remove(vrts) ## remove intermediate files
 
     if (type == "age") {
