@@ -36,10 +36,32 @@ WBI_standAge <- function(agbfiles, agefiles, studyareas, years, cl = NULL) {
 
     sa <- substr(basename(sadir), 1, 2)
 
+    ## crop/mask to ABoVE tile areas
+    wbi_rast_crs <- rast(agbfiles[1]) |> crs()
+
+    agb_gpkg <- file.path("outputs", "studyArea_WBI", "ABoVE_AGB_study_area.gpkg")
+    agb_tiles <- st_read(agb_gpkg, "tileset", quiet = TRUE) |>
+      st_buffer(1e3) |>
+      st_buffer(-1e3) |>
+      st_union() |>
+      st_make_valid() |>
+      st_transform(wbi_rast_crs)
+
+    wbi_provs <- file.path("outputs_wbi", "AGB_WBI", "WBI_studyArea_provs.gpkg") |>
+      st_read(quiet = TRUE) |>
+      st_transform(wbi_rast_crs)
+    wbi_provs$PREABBR <- c("AB", "BC", "MB", "NT", "NT", "SK", "YT") ## NU is part of NT rasters
+    prov <- wbi_provs[wbi_provs$PREABBR == sa, ] |>
+      st_intersection(agb_tiles) |>
+      st_union() |>
+      vect()
+
     ## Import AGB rasters (0 = NA)
     ragb <- grep(sadir, agbfiles, value = TRUE) |>
       sort() |>
-      rast()
+      rast() |>
+      crop(prov) |>
+      mask(prov)
     names(ragb) <- as.character(years)
     ragb <- writeRaster(ragb, file.path(sadir_out_agb, paste0("ragb_", sa, ".tif")), overwrite = TRUE)
 
@@ -48,6 +70,8 @@ WBI_standAge <- function(agbfiles, agefiles, studyareas, years, cl = NULL) {
     rage <- grep(sadir, agefiles, value = TRUE) |>
       sort() |>
       rast() |>
+      crop(prov) |>
+      mask(prov) |>
       classify(rcl = cbind(-100L, 0L, NA), include.lowest = TRUE)
     names(rage) <- years
     rage <- writeRaster(rage, file.path(sadir_out_age, paste0("rage_", sa, ".tif")), overwrite = TRUE)
