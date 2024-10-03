@@ -342,8 +342,10 @@ sf::gdal_utils(
 sf::gdal_utils(
   util = "warp",
   source = file.path(paths$terra, "agb_2000.vrt"),
-  destination = agb_mosaic
+  destination = agb_mosaic,
+  options = c("-overwrite")
 )
+file.remove(agb_vrt)
 
 ## i) rescale by 0.01 and classify into bins similar to Wang et al.
 classify(

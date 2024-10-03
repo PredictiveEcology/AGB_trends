@@ -203,7 +203,8 @@ browser() ## TODO: replace this chunk with AGBtrends::buildMosaics()
     sf::gdal_utils(
       util = "warp",
       source = file.path(paths$cache, paste0("AGB_age_mosaic_t", i, ".vrt")),
-      destination = f_ageMosaic
+      destination = f_ageMosaic,
+      options = c("-overwrite")
     )
 
     ## 3.3) Group into 5 discrete age classes

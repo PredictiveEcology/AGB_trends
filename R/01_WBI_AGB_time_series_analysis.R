@@ -408,8 +408,10 @@ for (thisRep in allReps) {
   sf::gdal_utils(
     util = "warp",
     source = agb_vrt,
-    destination = agb_mosaic
+    destination = agb_mosaic,
+    options = c("-overwrite")
   )
+  file.remove(agb_vrt)
 
   ## i) classify into Mg/ha bins similar to Wang et al.
   classify(rast(agb_mosaic) * 0.01, ## convert to Mg/ha
