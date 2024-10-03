@@ -609,7 +609,7 @@ for (thisRep in allReps) {
   ggsave(
     file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_x_ageClass_", Sys.Date(), ".png")),
     gg_72,
-    width = 16,
+    width = 24,
     height = 12
   )
 
@@ -632,8 +632,8 @@ for (thisRep in allReps) {
   ggsave(
     file.path(paths$figures, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")),
     gg_73,
-    width = 16,
-    height = 12
+    width = 24,
+    height = 16
   )
 
   ## 8 b) with disturbance mask -----------------------------------------------------------------
@@ -667,8 +667,8 @@ for (thisRep in allReps) {
   ggsave(
     file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
     gg_75,
-    width = 16,
-    height = 12
+    width = 24,
+    height = 16
   )
 
   f2p <- file.path(paths$summaries) |>
