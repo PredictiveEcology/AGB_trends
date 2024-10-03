@@ -633,8 +633,8 @@ for (thisRep in allReps) {
   ggsave(
     file.path(paths$figures, paste0("AGB_temporal_trends_x_ageClass_x_ECOZONE_", Sys.Date(), ".png")),
     gg_73,
-    width = 10,
-    height = 5
+    width = 16,
+    height = 12
   )
 
   ## 8 b) with disturbance mask -----------------------------------------------------------------
@@ -667,21 +667,25 @@ for (thisRep in allReps) {
 
   ggsave(
     file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
-    gg_75
+    gg_75,
+    width = 16,
+    height = 12
   )
 
   f2p <- file.path(paths$summaries) |>
     list.files(pattern = "WBI_distMask_ecozone", full.names = TRUE)
 
   gg_76 <- plotZoneStatsIntervals(
-    files2plot,
+    files2plot = f2p,
     tref = t_ref
   ) ## NOTE: only age class `0-24` here
 
   ## TODO: verify & adjust output filename
   # ggsave(
   #   file.path(paths$figures, paste0("AGB_temporal_trends_x_ECOZONE_distMask_", Sys.Date(), ".png")),
-  #   gg_76
+  #   gg_76,
+  #   width = 16,
+  #   height = 12
   # )
 
   # 9) Test for significant differences between groups ------------------------------------------
