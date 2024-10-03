@@ -402,7 +402,7 @@ for (thisRep in allReps) {
     util = "buildvrt",
     source = agb_tifs,
     destination = agb_vrt,
-    options = c("-b", as.character(length(years)))
+    options = c("-b", as.character(which(years == myear)))
   )
 
   sf::gdal_utils(
@@ -421,7 +421,7 @@ for (thisRep in allReps) {
 
   ## ii) compute sum of AGB (in Mg) by age class (t18 = 2100)
   agbSum <- zonal(rast(agb_mosaic) * pixelAreaHa,
-                  rast(file.path(paths$mosaics, "agb_age_mosaic_classes_t18.tif")),
+                  rast(file.path(paths$mosaics, "agb_age_mosaic_classes_t18.tif")), ## tail(f7, 1L)
                   fun = "sum", na.rm = TRUE
   )
 
