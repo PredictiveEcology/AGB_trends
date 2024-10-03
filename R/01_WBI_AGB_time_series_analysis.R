@@ -562,10 +562,9 @@ for (thisRep in allReps) {
       geom_smooth(method = "loess") +
       geom_point(aes(y = inv_scale_function(c(df$AGB, NA), scale, shift),
                      color = "Total AGB (Tg)"), pch = 20, cex = 0.75) +
-      scale_x_continuous(breaks = seq.int(from = head(years, 1), to = tail(years, 1), by = 5),
-                         labels = identity) +
       scale_y_continuous("Cumulative AGB change (Tg)",
-                         limits = c(min_first, max_first * 1.1),
+                         limits = c(min(min_first, inv_scale_function(min_second, scale, shift)),
+                                    max(max_first, inv_scale_function(max_second, scale, shift))),
                          sec.axis = sec_axis(~ scale_function(., scale, shift),
                                              name = "Total AGB (Tg)")
       ) +

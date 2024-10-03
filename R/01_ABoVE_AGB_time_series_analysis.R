@@ -486,8 +486,9 @@ lapply(1:length(ecozones), function(i) {
     geom_point(aes(y = inv_scale_function(c(df$AGB, NA), scale, shift), color = "Total AGB (Tg)"), pch = 20, cex = 0.75) +
     scale_x_continuous(breaks = seq.int(from = head(years, 1), to = tail(years, 1), by = 5), labels = identity) +
     scale_y_continuous("Cumulative AGB change (Tg)",
-      limits = c(min_first, max_first * 1.1),
-      sec.axis = sec_axis(~ scale_function(., scale, shift), name = "Total AGB (Tg)")
+                       limits = c(min(min_first, inv_scale_function(min_second, scale, shift)),
+                                  max(max_first, inv_scale_function(max_second, scale, shift))),
+                       sec.axis = sec_axis(~ scale_function(., scale, shift), name = "Total AGB (Tg)")
     ) +
     geom_hline(yintercept = 0, lty = "dashed") +
     labs(color = "Units")
