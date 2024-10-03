@@ -33,6 +33,10 @@ projName <- workflowtools::findProjectName()
 studyAreaName <- "AGB_WBI"
 user <- Sys.info()[["user"]]
 
+googleUser <- switch(user,
+                     achubaty = "achubaty@for-cast.ca",
+                     trudolph = "tylerdrudolph@gmail.com")
+
 ## specify which WBI runs to use for AGB analyses
 if (!exists("climateGCM")) {
   climateGCM <- "CanESM5" ## "CNRM-ESM2-1"
@@ -687,6 +691,8 @@ for (thisRep in allReps) {
   # 10) upload results --------------------------------------------------------------------------
 
   drive_outputs <- as_id("19XHTS6V09ARYbVZ6hM1SQiUSLjWuO8-M")
+
+  SpaDES.config::authGoogle(tryToken = "forprod", tryEmail = googleUser)
 
   gid <- drive_ls(drive_outputs) |>
     filter(name == basename(paths$outputs)) |>
