@@ -82,7 +82,7 @@ for (thisRep in allReps) {
   paths$figures <- file.path(paths$outputs, "figures") |> checkPath(create = TRUE)
   paths$mosaics <- file.path(paths$outputs, "mosaics") |> checkPath(create = TRUE)
   paths$summaries <- file.path(paths$outputs, "summaries") |> checkPath(create = TRUE)
-  paths$terra <- file.path(paths$scratch, "terra", climateScenario, "01") |> checkPath(create = TRUE)
+  paths$terra <- file.path(paths$scratch, "terra", climateScenario, thisRep) |> checkPath(create = TRUE)
 
   file.remove(list.files(paths$terra, full.names = TRUE)) ## preemptive cleanup
 
@@ -706,13 +706,13 @@ for (thisRep in allReps) {
       as_id()
   }
 
-  files2upload <- c(
-    f1, f2, f3, f4, f5, f6, f7,
-    list.files(file.path(paths$figures), full.names = TRUE),
-    list.files(file.path(paths$summaries), full.names = TRUE)
-  )
+  dirsToUpload <- file.path(paths$outputs, c("figures", "mosaics", "summaries"))
 
-  purrr::walk(files2upload, drive_put, path = gid)
+  lapply(dirsToUpload, function(d) {
+    ## TODO: why is re-auth needed?
+    SpaDES.config::authGoogle(tryToken = "forprod", tryEmail = googleUser)
+    workflowtools::drive_upload_folder(d, gid, batch_size = 20)
+  })
 }
 
 # cleanup -------------------------------------------------------------------------------------
