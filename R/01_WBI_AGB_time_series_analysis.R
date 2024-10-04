@@ -708,7 +708,8 @@ for (thisRep in allReps) {
 
   files2upload <- c(
     f1, f2, f3, f4, f5, f6, f7,
-    list.files(file.path(paths$figures), full.names = TRUE)
+    list.files(file.path(paths$figures), full.names = TRUE),
+    list.files(file.path(paths$summaries), full.names = TRUE)
   )
 
   purrr::walk(files2upload, drive_put, path = gid)
